@@ -76,33 +76,38 @@ export default function PortalLayout() {
       {isAboutOpen && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
           <div className="bg-slate-900 border border-slate-700 rounded-xl max-w-sm w-full shadow-2xl overflow-hidden relative">
-            <button onClick={() => setIsAboutOpen(false)} className="absolute top-4 right-4 text-slate-400 hover:text-white">
+            <button onClick={() => setIsAboutOpen(false)} className="absolute top-4 right-4 text-slate-400 hover:text-white transition-colors">
               <X size={20} />
             </button>
             <div className="p-6">
               <h3 className="text-xl font-bold text-slate-100 flex items-center gap-2 mb-4">
-                <Info className="text-sky-400" /> אודות האתר
+                <Info className="text-sky-400" /> About This Site
               </h3>
               
-              <div className="space-y-4 text-sm text-slate-300 leading-relaxed text-right" dir="rtl">
+              <div className="space-y-4 text-sm text-slate-300 leading-relaxed">
                 <p>
-                  <strong>אודות היוצר:</strong> Aizik Friedman, איש Observability Engineer וחובב SRE.
+                  <strong>Creator:</strong> Aizik Friedman, Observability Engineer and SRE enthusiast.
                   <br/>
                   <a href="https://me.aizikfriedman.com" target="_blank" rel="noreferrer" className="text-sky-400 hover:underline">me.aizikfriedman.com</a>
                 </p>
+                
                 <div className="h-px bg-slate-800 w-full" />
+                
                 <p className="text-xs text-slate-400">
-                  <strong className="text-slate-300">גילוי נאות:</strong> האתר נוצר בעזרת AI למטרות אישיות. 
-                  אם נעזרתם בו או לחילופין מצאתם באג, דווחו:
+                  <strong className="text-slate-300">Disclaimer:</strong> This site was created with the assistance of AI for personal purposes. 
+                  If you found it helpful or encountered a bug, please report it here:
                   <br/>
-                  <a href="https://github.com/aizik-fridman/oss-tools/issues" target="_blank" rel="noreferrer" className="text-sky-400 hover:underline mt-1 inline-block text-left" dir="ltr">
+                  <a href="https://github.com/aizik-fridman/oss-tools/issues" target="_blank" rel="noreferrer" className="text-sky-400 hover:underline mt-1 inline-block">
                     github.com/aizik-fridman/oss-tools/issues
                   </a>
                 </p>
+                
                 <div className="h-px bg-slate-800 w-full" />
+                
                 <p>
-                  ליצירת קשר:<br/>
-                  <a href="mailto:me@aizikfriedman.com" className="text-sky-400 hover:underline text-left inline-block" dir="ltr">me@aizikfriedman.com</a>
+                  <strong>Contact:</strong>
+                  <br/>
+                  <a href="mailto:me@aizikfriedman.com" className="text-sky-400 hover:underline">me@aizikfriedman.com</a>
                 </p>
               </div>
             </div>
