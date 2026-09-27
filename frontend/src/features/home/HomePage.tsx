@@ -1,5 +1,5 @@
 import { Link } from 'react-router-dom';
-import { Search, LayoutDashboard, FileWarning, ArrowRight } from 'lucide-react';
+import { Search, LayoutDashboard, FileWarning, Calculator, ArrowRight } from 'lucide-react';
 
 export default function HomePage() {
   const tools = [
@@ -30,6 +30,15 @@ export default function HomePage() {
       bgClass: 'bg-amber-400/10 hover:bg-amber-400/20',
       borderClass: 'border-amber-500/20'
     },
+    { 
+      path: '/sre-calculator', 
+      name: 'SRE Calculators', 
+      icon: Calculator,
+      description: 'Calculate SLOs, Error Budgets, and SLIs based on Site Reliability Engineering principles.',
+      color: 'text-violet-400',
+      bgClass: 'bg-violet-400/10 hover:bg-violet-400/20',
+      borderClass: 'border-violet-500/20'
+    },
   ];
 
   return (
@@ -44,7 +53,7 @@ export default function HomePage() {
           </p>
         </header>
 
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
           {tools.map((tool, idx) => {
             const Icon = tool.icon;
             return (

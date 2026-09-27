@@ -3,6 +3,7 @@ import PortalLayout from './components/layout/PortalLayout';
 import ExplainerTool from './features/promql/Explainer';
 import AlertAnalyzerTool from './features/alerts/AlertAnalyzer';
 import DashboardAnalyzerTool from './features/dashboard/DashboardAnalyzer';
+import SreCalculator from './features/sre/SreCalculator';
 
 import HomePage from './features/home/HomePage';
 
@@ -14,6 +15,7 @@ export default function App() {
         <Route path="promql-helper" element={<ExplainerTool />} />
         <Route path="alert-analyzer" element={<AlertAnalyzerTool />} />
         <Route path="dashboard-analyzer" element={<DashboardAnalyzerTool />} />
+        <Route path="sre-calculator" element={<SreCalculator />} />
       </Route>
     </Routes>
   );
