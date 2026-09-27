@@ -88,7 +88,7 @@ export default function PortalLayout() {
                 <p>
                   <strong>Creator:</strong> Aizik Friedman, Observability Engineer and SRE enthusiast.
                   <br/>
-                  <a href="https://me.aizikfriedman.com" target="_blank" rel="noreferrer" className="text-sky-400 hover:underline">me.aizikfriedman.com</a>
+                  <a href="https://me.aizikfriedman.com" target="_blank" rel="noreferrer" className="text-sky-400 hover:underline">Visit My Website</a>
                 </p>
                 
                 <div className="h-px bg-slate-800 w-full" />
@@ -113,7 +113,7 @@ export default function PortalLayout() {
                 <p>
                   <strong>Contact:</strong>
                   <br/>
-                  <a href="mailto:me@aizikfriedman.com" className="text-sky-400 hover:underline">me@aizikfriedman.com</a>
+                  <a href="mailto:me@aizikfriedman.com" className="text-sky-400 hover:underline">Visit My Website</a>
                 </p>
               </div>
             </div>
