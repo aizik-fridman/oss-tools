@@ -16,7 +16,7 @@ export default function PortalLayout() {
       <div className="w-64 bg-slate-900 border-r border-slate-800 flex flex-col">
         <div className="h-16 flex items-center px-6 border-b border-slate-800">
           <h1 className="text-xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-sky-400 to-emerald-400">
-            PromQL Tools
+            Observability Helpers
           </h1>
         </div>
         

@@ -467,7 +467,7 @@ export default function DashboardAnalyzerTool() {
       <div className="max-w-6xl mx-auto space-y-8">
         <header>
           <h2 className="text-2xl font-bold text-pink-400">Dashboard Static Analyzer</h2>
-          <p className="text-slate-400 mt-2">Professional, static analysis for Grafana Dashboards based on SRE methodologies.</p>
+          <p className="text-slate-400 mt-2">Static analysis for Grafana Dashboards based on SRE methodologies.</p>
         </header>
 
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">

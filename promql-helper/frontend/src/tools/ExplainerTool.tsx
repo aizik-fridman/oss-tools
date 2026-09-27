@@ -203,7 +203,7 @@ export default function App() {
     <div className="h-full bg-[#0f172a] flex flex-col overflow-hidden">
       <header className="h-16 flex items-center justify-between px-6 bg-slate-900 border-b border-slate-800 shrink-0">
         <h1 className="text-2xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-sky-400 to-emerald-400">
-          PromQL Helper Pro
+          PromQL Helper
         </h1>
         <div className="flex items-center gap-4">
           {!wasmReady && <span className="text-amber-400 text-sm animate-pulse">WASM Loading...</span>}
