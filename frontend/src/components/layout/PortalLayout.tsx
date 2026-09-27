@@ -1,5 +1,5 @@
 import { Link, Outlet, useLocation } from 'react-router-dom';
-import { Search, LayoutDashboard, FileWarning, Menu, X, Info } from 'lucide-react';
+import { Search, LayoutDashboard, FileWarning, Menu, X, Info, ExternalLink, Mail } from 'lucide-react';
 import { useState } from 'react';
 
 export default function PortalLayout() {
@@ -88,7 +88,9 @@ export default function PortalLayout() {
                 <p>
                   <strong>Creator:</strong> Aizik Friedman, Observability Engineer and SRE enthusiast.
                   <br/>
-                  <a href="https://me.aizikfriedman.com" target="_blank" rel="noreferrer" className="text-sky-400 hover:underline">Visit My Website</a>
+                  <a href="https://me.aizikfriedman.com" target="_blank" rel="noreferrer" className="text-sky-400 hover:underline inline-flex items-center gap-1 mt-1">
+                    me.aizikfriedman.com <ExternalLink size={14} />
+                  </a>
                 </p>
                 
                 <div className="h-px bg-slate-800 w-full" />
@@ -113,7 +115,9 @@ export default function PortalLayout() {
                 <p>
                   <strong>Contact:</strong>
                   <br/>
-                  <a href="mailto:me@aizikfriedman.com" className="text-sky-400 hover:underline">Visit My Website</a>
+                  <a href="mailto:me@aizikfriedman.com" className="text-sky-400 hover:underline inline-flex items-center gap-1 mt-1">
+                    <Mail size={14} /> me@aizikfriedman.com
+                  </a>
                 </p>
               </div>
             </div>
