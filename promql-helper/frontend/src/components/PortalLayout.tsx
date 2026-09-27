@@ -5,9 +5,9 @@ export default function PortalLayout() {
   const location = useLocation();
 
   const navItems = [
+    { path: '/dashboard-analyzer', name: 'Dashboard Analyzer', icon: LayoutDashboard },
     { path: '/promql-helper', name: 'PromQL Helper', icon: Search },
     { path: '/alert-analyzer', name: 'Alert Analyzer', icon: FileWarning },
-    { path: '/dashboard-analyzer', name: 'Dashboard Analyzer', icon: LayoutDashboard },
   ];
 
   return (
