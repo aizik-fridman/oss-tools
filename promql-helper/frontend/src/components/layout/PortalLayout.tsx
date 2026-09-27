@@ -1,10 +1,11 @@
 import { Link, Outlet, useLocation } from 'react-router-dom';
-import { Search, LayoutDashboard, FileWarning, Menu, X } from 'lucide-react';
+import { Search, LayoutDashboard, FileWarning, Menu, X, Info } from 'lucide-react';
 import { useState } from 'react';
 
 export default function PortalLayout() {
   const location = useLocation();
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const [isAboutOpen, setIsAboutOpen] = useState(false);
 
   const navItems = [
     { path: '/dashboard-analyzer', name: 'Dashboard Analyzer', icon: LayoutDashboard },
@@ -61,9 +62,9 @@ export default function PortalLayout() {
         
         <div className="p-4 border-t border-slate-800 text-xs text-slate-500 text-center flex flex-col gap-1 shrink-0 bg-slate-900 pb-safe">
           <span>OSS Tools Portal v1.0</span>
-          <a href="mailto:me@aizikfriedman.com" className="text-[10px] text-slate-600 hover:text-slate-400 transition-colors">
-            Contact: me@aizikfriedman.com
-          </a>
+          <button onClick={() => setIsAboutOpen(true)} className="text-[11px] text-slate-600 hover:text-sky-400 transition-colors font-medium">
+            About this site
+          </button>
         </div>
       </div>
 
@@ -71,6 +72,43 @@ export default function PortalLayout() {
       <div className="flex-1 overflow-hidden relative flex flex-col z-0">
         <Outlet />
       </div>
+
+      {isAboutOpen && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
+          <div className="bg-slate-900 border border-slate-700 rounded-xl max-w-sm w-full shadow-2xl overflow-hidden relative">
+            <button onClick={() => setIsAboutOpen(false)} className="absolute top-4 right-4 text-slate-400 hover:text-white">
+              <X size={20} />
+            </button>
+            <div className="p-6">
+              <h3 className="text-xl font-bold text-slate-100 flex items-center gap-2 mb-4">
+                <Info className="text-sky-400" /> אודות האתר
+              </h3>
+              
+              <div className="space-y-4 text-sm text-slate-300 leading-relaxed text-right" dir="rtl">
+                <p>
+                  <strong>אודות היוצר:</strong> Aizik Friedman, איש Observability Engineer וחובב SRE.
+                  <br/>
+                  <a href="https://me.aizikfriedman.com" target="_blank" rel="noreferrer" className="text-sky-400 hover:underline">me.aizikfriedman.com</a>
+                </p>
+                <div className="h-px bg-slate-800 w-full" />
+                <p className="text-xs text-slate-400">
+                  <strong className="text-slate-300">גילוי נאות:</strong> האתר נוצר בעזרת AI למטרות אישיות. 
+                  אם נעזרתם בו או לחילופין מצאתם באג, דווחו:
+                  <br/>
+                  <a href="https://github.com/aizik-fridman/oss-tools/issues" target="_blank" rel="noreferrer" className="text-sky-400 hover:underline mt-1 inline-block text-left" dir="ltr">
+                    github.com/aizik-fridman/oss-tools/issues
+                  </a>
+                </p>
+                <div className="h-px bg-slate-800 w-full" />
+                <p>
+                  ליצירת קשר:<br/>
+                  <a href="mailto:me@aizikfriedman.com" className="text-sky-400 hover:underline text-left inline-block" dir="ltr">me@aizikfriedman.com</a>
+                </p>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
