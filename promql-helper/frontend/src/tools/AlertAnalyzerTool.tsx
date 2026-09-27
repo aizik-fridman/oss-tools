@@ -18,14 +18,14 @@ export default function AlertAnalyzerTool() {
       if (parsed?.groups && Array.isArray(parsed.groups)) {
         parsed.groups.forEach((g: any) => {
           if (g.rules && Array.isArray(g.rules)) {
-            rules = [...rules, ...g.rules.filter((r: any) => r.alert)];
+            rules = [...rules, ...g.rules.filter((r: any) => r.alert || r.title)];
           }
         });
       } else if (Array.isArray(parsed)) {
         // Flat array of rules
-        rules = parsed.filter(r => r.alert);
+        rules = parsed.filter(r => r.alert || r.title);
       } else {
-        throw new Error('Invalid Prometheus rules format. Expected "groups" array containing "rules".');
+        throw new Error('Invalid rules format. Expected "groups" array containing "rules".');
       }
 
       if (rules.length === 0) {
@@ -34,6 +34,14 @@ export default function AlertAnalyzerTool() {
 
       const analyzed = rules.map(rule => {
         const issues = [];
+        const isLegacy = !!rule.alert;
+        const name = rule.alert || rule.title;
+        
+        let expr = rule.expr;
+        if (!isLegacy && rule.data && Array.isArray(rule.data)) {
+           const queryNode = rule.data.find((d: any) => d.model && d.model.expr);
+           if (queryNode) expr = queryNode.model.expr;
+        }
         
         if (!rule.annotations?.summary) {
           issues.push('Missing "summary" annotation. It is highly recommended to provide a short summary of the alert.');
@@ -44,10 +52,13 @@ export default function AlertAnalyzerTool() {
         if (!rule.labels?.severity) {
           issues.push('Missing "severity" label (e.g., critical, warning, info).');
         }
+        if (isLegacy) {
+          issues.push('💡 Tip: This rule uses Legacy format. Use the YAML Converter tool to upgrade it to Grafana Unified Alerting.');
+        }
 
         return {
-          name: rule.alert,
-          expr: rule.expr,
+          name,
+          expr: expr || 'Unknown expression',
           for: rule.for || '0s (fires immediately)',
           severity: rule.labels?.severity || 'none',
           summary: rule.annotations?.summary || 'No summary provided',
