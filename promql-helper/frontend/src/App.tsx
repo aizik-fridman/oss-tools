@@ -96,7 +96,8 @@ export default function App() {
 
   // Setup Web Worker
   useEffect(() => {
-    const worker = new Worker(new URL('./promql.worker.ts', import.meta.url), { type: 'module' })
+    // Remove { type: 'module' } so importScripts() works
+    const worker = new Worker(new URL('./promql.worker.ts', import.meta.url))
     workerRef.current = worker
 
     worker.onmessage = (e) => {
@@ -129,8 +130,10 @@ export default function App() {
     const q = params.get('q')
     if (q) {
       try {
-        setQuery(atob(q))
-      } catch (e) {}
+        setQuery(decodeURIComponent(atob(q)))
+      } catch (e) {
+        console.error('Invalid base64/uri query in URL', e)
+      }
     }
   }, [])
 
@@ -138,8 +141,12 @@ export default function App() {
   useEffect(() => {
     if (query) {
       const url = new URL(window.location.href)
-      url.searchParams.set('q', btoa(query))
-      window.history.replaceState({}, '', url.toString())
+      try {
+        url.searchParams.set('q', btoa(encodeURIComponent(query)))
+        window.history.replaceState({}, '', url.toString())
+      } catch (e) {
+        console.error('Failed to encode URL parameters')
+      }
 
       if (wasmReady && workerRef.current) {
         workerRef.current.postMessage({ type: 'PARSE', payload: query, id: Date.now() })
