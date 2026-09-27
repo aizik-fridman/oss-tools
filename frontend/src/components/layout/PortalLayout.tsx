@@ -1,3 +1,4 @@
+import AdBanner from '../AdBanner';
 import { Link, Outlet, useLocation } from 'react-router-dom';
 import { Search, LayoutDashboard, FileWarning, Calculator, Menu, X, Info, ExternalLink, Mail, Code2 } from 'lucide-react';
 import { useState } from 'react';
@@ -78,6 +79,7 @@ export default function PortalLayout() {
       {/* Main Content */}
       <div className="flex-1 overflow-hidden relative flex flex-col z-0">
         <Outlet />
+        <AdBanner />
       </div>
 
       {isAboutOpen && (
