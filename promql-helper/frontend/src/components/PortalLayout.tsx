@@ -41,8 +41,11 @@ export default function PortalLayout() {
           })}
         </nav>
         
-        <div className="p-4 border-t border-slate-800 text-xs text-slate-500 text-center">
-          OSS Tools Portal v1.0
+        <div className="p-4 border-t border-slate-800 text-xs text-slate-500 text-center flex flex-col gap-1">
+          <span>OSS Tools Portal v1.0</span>
+          <a href="mailto:me@aizikfriedman.com" className="text-[10px] text-slate-600 hover:text-slate-400 transition-colors">
+            Contact: me@aizikfriedman.com
+          </a>
         </div>
       </div>
 
