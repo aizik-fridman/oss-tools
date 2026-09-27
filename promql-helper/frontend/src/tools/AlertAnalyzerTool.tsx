@@ -237,7 +237,7 @@ export default function AlertAnalyzerTool() {
 
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
           <div className="space-y-4 flex flex-col">
-            <div className="w-full h-[500px] border border-slate-700 rounded-xl overflow-hidden shadow-inner bg-[#1e1e1e] relative">
+            <div className="w-full h-[400px] border border-slate-700 rounded-xl overflow-hidden shadow-inner bg-[#1e1e1e] relative">
               {!yamlInput && (
                 <CodeInputOverlay 
                   language="yaml" 
