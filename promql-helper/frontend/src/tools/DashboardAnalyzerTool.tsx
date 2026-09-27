@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import Editor from '@monaco-editor/react';
 import { LayoutDashboard, CheckCircle, AlertTriangle, Copy, Check, ChevronDown, ChevronRight, Activity, Users, ShieldAlert } from 'lucide-react';
 import { z } from 'zod';
 
@@ -311,12 +312,23 @@ export default function DashboardAnalyzerTool() {
 
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
           <div className="space-y-4 flex flex-col h-full">
-            <textarea
-              value={jsonInput}
-              onChange={e => setJsonInput(e.target.value)}
-              placeholder='{ "title": "My Dashboard", "panels": [...] }'
-              className="w-full h-[600px] bg-slate-900 border border-slate-700 rounded-xl p-4 text-slate-200 font-mono text-sm focus:border-pink-500 focus:outline-none"
-            />
+            <div className="w-full h-[600px] border border-slate-700 rounded-xl overflow-hidden shadow-inner bg-[#1e1e1e]">
+              <Editor
+                height="100%"
+                language="json"
+                theme="vs-dark"
+                value={jsonInput}
+                onChange={(val) => setJsonInput(val || '')}
+                options={{
+                  minimap: { enabled: false },
+                  scrollBeyondLastLine: false,
+                  wordWrap: 'on',
+                  padding: { top: 16, bottom: 16 },
+                  fontSize: 14,
+                  formatOnPaste: true,
+                }}
+              />
+            </div>
             <div className="flex gap-4">
               <button
                 onClick={analyzeDashboard}
