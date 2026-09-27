@@ -3,6 +3,7 @@
 declare var Go: any;
 
 let wasmReady = false;
+const messageQueue: any[] = [];
 
 // Load the wasm_exec.js script from public
 importScripts('/wasm_exec.js');
@@ -15,6 +16,12 @@ async function initWasm() {
       go.run(result.instance);
       wasmReady = true;
       self.postMessage({ type: 'WASM_READY' });
+      
+      // Flush queue
+      while (messageQueue.length > 0) {
+        const msg = messageQueue.shift();
+        handleParse(msg);
+      }
     } catch (err) {
       self.postMessage({ type: 'ERROR', payload: String(err) });
     }
@@ -23,18 +30,22 @@ async function initWasm() {
 
 initWasm();
 
+function handleParse(data: any) {
+  try {
+    // @ts-ignore
+    const resStr = self.parsePromQL(data.payload);
+    self.postMessage({ type: 'PARSE_RESULT', payload: resStr, id: data.id });
+  } catch (err) {
+    self.postMessage({ type: 'ERROR', payload: String(err), id: data.id });
+  }
+}
+
 self.onmessage = (e) => {
   if (e.data.type === 'PARSE') {
     if (!wasmReady) {
-      self.postMessage({ type: 'ERROR', payload: 'WASM not ready', id: e.data.id });
+      messageQueue.push(e.data);
       return;
     }
-    try {
-      // @ts-ignore
-      const resStr = self.parsePromQL(e.data.payload);
-      self.postMessage({ type: 'PARSE_RESULT', payload: resStr, id: e.data.id });
-    } catch (err) {
-      self.postMessage({ type: 'ERROR', payload: String(err), id: e.data.id });
-    }
+    handleParse(e.data);
   }
 };

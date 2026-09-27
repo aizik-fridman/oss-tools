@@ -25,20 +25,31 @@ export default function App() {
     }
   }, [monaco])
 
+  const resolversRef = useRef<{ [key: string]: (val: any) => void }>({})
+
   // Setup Web Worker
   useEffect(() => {
-    // Remove { type: 'module' } so importScripts() works
     const worker = new Worker(new URL('../../promql.worker.ts', import.meta.url))
     workerRef.current = worker
 
     worker.onmessage = (e) => {
-      const { type, payload } = e.data
+      const { type, payload, id } = e.data
       if (type === 'WASM_READY') {
         setWasmReady(true)
-      } else if (type === 'PARSE_RESULT') {
-        setResult(JSON.parse(payload))
-      } else if (type === 'ERROR') {
-        setResult({ error: payload } as ParseResult)
+      } else if (type === 'PARSE_RESULT' || type === 'ERROR') {
+        const resolve = resolversRef.current[id];
+        if (resolve) {
+          if (type === 'ERROR') {
+            resolve({ error: payload } as ParseResult)
+          } else {
+            try {
+              resolve(JSON.parse(payload))
+            } catch(err) {
+              resolve({ error: 'Parse JSON Failed' } as ParseResult)
+            }
+          }
+          delete resolversRef.current[id];
+        }
       }
     }
 
@@ -79,8 +90,12 @@ export default function App() {
         console.error('Failed to encode URL parameters')
       }
 
-      if (wasmReady && workerRef.current) {
-        workerRef.current.postMessage({ type: 'PARSE', payload: query, id: Date.now() })
+      if (workerRef.current) {
+        const id = Math.random().toString(36).substring(2, 9);
+        new Promise((resolve) => {
+          resolversRef.current[id] = resolve;
+          workerRef.current?.postMessage({ type: 'PARSE', payload: query, id })
+        }).then((res: any) => setResult(res));
       }
     } else {
       const url = new URL(window.location.href)
@@ -88,7 +103,7 @@ export default function App() {
       window.history.replaceState({}, '', url.toString())
       setResult(null)
     }
-  }, [query, wasmReady])
+  }, [query])
 
   // Sync Monaco Markers
   const editorRef = useRef<Monaco.editor.IStandaloneCodeEditor | null>(null)

@@ -17,9 +17,7 @@ export function performAnalysis(dash: any): AnalysisResult {
   let variables = 0;
 
   // Track issues to report successes
-  let hasLongTimeRange = false;
-  let hasFastRefresh = false;
-  let badVarRefresh = 0;
+      let badVarRefresh = 0;
   let orphanedVars = 0;
   let broadRegexVars = 0;
   let missingDesc = 0;
@@ -55,8 +53,7 @@ export function performAnalysis(dash: any): AnalysisResult {
   if (dash.time && dash.time.from) {
     const from = dash.time.from;
     if (from.match(/now-[7-9]d|now-[1-9][0-9]d|now-[1-9]w|now-[1-9]M|now-[1-9]y/)) {
-      hasLongTimeRange = true;
-      addFinding({
+            addFinding({
         severity: 'info',
         confidence: 'medium',
         category: 'performance',
@@ -69,8 +66,7 @@ export function performAnalysis(dash: any): AnalysisResult {
 
   markCheck('refresh_interval');
   if (dash.refresh && ['5s', '10s'].includes(dash.refresh)) {
-    hasFastRefresh = true;
-    addFinding({
+        addFinding({
       severity: 'warning',
       confidence: 'medium',
       category: 'performance',
@@ -83,7 +79,11 @@ export function performAnalysis(dash: any): AnalysisResult {
   // Variables Checks
   const templating = dash.templating?.list || [];
   variables = templating.length;
-  const dashString = JSON.stringify(dash);
+  const dashElementsForVars = JSON.stringify({
+    panels: dash.panels || [],
+    annotations: dash.annotations || [],
+    links: dash.links || [],
+  });
 
   templating.forEach((v: any) => {
     markCheck('variable_refresh');
@@ -102,7 +102,9 @@ export function performAnalysis(dash: any): AnalysisResult {
 
     markCheck('variable_orphaned');
     const varRegex = new RegExp(`\\$${v.name}(?![a-zA-Z0-9_])|\\$\\{${v.name}(:[a-zA-Z0-9_]+)?\\}`, 'g');
-    const matches = dashString.match(varRegex);
+    const otherVars = templating.filter((ov: any) => ov.name !== v.name);
+    const fullSearchString = dashElementsForVars + JSON.stringify(otherVars);
+    const matches = fullSearchString.match(varRegex);
     if (!matches || matches.length === 0) {
       orphanedVars++;
       addFinding({
@@ -252,7 +254,7 @@ export function performAnalysis(dash: any): AnalysisResult {
             });
           }
 
-          const heavyConstructs = ['sort(', 'sort_desc(', 'count_values(', 'histogram_quantile(', 'label_replace(', 'label_join('];
+          const heavyConstructs = ['sort(', 'sort_desc(', 'count_values(', 'label_replace(', 'label_join('];
           for (const construct of heavyConstructs) {
             if (expr.includes(construct)) {
               badPromQL++;
@@ -284,23 +286,6 @@ export function performAnalysis(dash: any): AnalysisResult {
       });
     }
   });
-
-  // Explicit Success Findings
-  if (!hasLongTimeRange) addFinding({ severity: 'success', confidence: 'high', category: 'performance', title: 'Efficient Time Range', description: 'Dashboard default time range is reasonably bounded.' });
-  if (!hasFastRefresh) addFinding({ severity: 'success', confidence: 'high', category: 'performance', title: 'Safe Refresh Interval', description: 'No overly aggressive dashboard refresh intervals detected.' });
-  if (variables > 0) {
-    if (badVarRefresh === 0) addFinding({ severity: 'success', confidence: 'high', category: 'performance', title: 'Optimal Variable Refresh', description: 'All query variables refresh efficiently on dashboard load.' });
-    if (orphanedVars === 0) addFinding({ severity: 'success', confidence: 'high', category: 'sre', title: 'No Orphaned Variables', description: 'All defined template variables are actively used.' });
-    if (broadRegexVars === 0) addFinding({ severity: 'success', confidence: 'high', category: 'sre', title: 'Optimized Regex Variables', description: 'No broad regex matchers detected in variables.' });
-  }
-  if (totalPanels > 0) {
-    if (missingDesc === 0) addFinding({ severity: 'success', confidence: 'high', category: 'ux', title: 'Complete Descriptions', description: 'All relevant panels have descriptive context for on-call users.' });
-    if (missingDP === 0 && queryPanels > 0) addFinding({ severity: 'success', confidence: 'high', category: 'performance', title: 'Bounded Data Points', description: 'All timeseries panels explicitly define maxDataPoints.' });
-    if (missingUnits === 0) addFinding({ severity: 'success', confidence: 'high', category: 'ux', title: 'Explicit Units', description: 'All relevant panels have explicitly defined units.' });
-    if (missingThresholds === 0) addFinding({ severity: 'success', confidence: 'high', category: 'ux', title: 'Configured Thresholds', description: 'All relevant stat/gauge panels have color thresholds.' });
-    if (legacyAlerts === 0) addFinding({ severity: 'success', confidence: 'high', category: 'sre', title: 'Modern Alerting', description: 'No legacy panel alerts detected.' });
-    if (badPromQL === 0 && queryPanels > 0) addFinding({ severity: 'success', confidence: 'high', category: 'performance', title: 'Efficient PromQL', description: 'Queries utilize efficient rate intervals and bounded selections.' });
-  }
 
   const warnings = findings.filter(f => f.severity === 'warning').length;
   const critical = findings.filter(f => f.severity === 'critical').length;

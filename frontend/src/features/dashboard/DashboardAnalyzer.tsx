@@ -32,9 +32,6 @@ export default function DashboardAnalyzerTool() {
       }
       
       const res = performAnalysis(parsed.data);
-      const totalPossibleChecks = 12; // Static number of check categories implemented
-      res.stats.checksRun = totalPossibleChecks;
-      // passed count is exactly the number of success findings emitted
       
       setAnalysis(res);
       // Optional: expand all if needed, but user explicitly said default closed. We will leave them closed.

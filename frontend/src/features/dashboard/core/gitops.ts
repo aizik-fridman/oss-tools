@@ -1,16 +1,16 @@
 export const gitOpsTransientKeys = ['id', 'version', 'iteration'];
 
-export function cleanForGitOps(obj: any): any {
-  if (Array.isArray(obj)) {
-    return obj.map(cleanForGitOps);
-  } else if (obj !== null && typeof obj === 'object') {
-    const newObj: any = {};
-    for (const [key, value] of Object.entries(obj)) {
-      if (!gitOpsTransientKeys.includes(key)) {
-        newObj[key] = cleanForGitOps(value);
-      }
-    }
-    return newObj;
-  }
-  return obj;
+export function cleanForGitOps(dash: any): any {
+  if (!dash || typeof dash !== 'object') return dash;
+  
+  // Create a deep copy to avoid mutating the original
+  const newDash = JSON.parse(JSON.stringify(dash));
+  
+  // Only remove id, version, and iteration from the root level.
+  // We MUST NOT remove "id" recursively, because panels use "id" for their identifiers.
+  delete newDash.id;
+  delete newDash.version;
+  delete newDash.iteration;
+  
+  return newDash;
 }

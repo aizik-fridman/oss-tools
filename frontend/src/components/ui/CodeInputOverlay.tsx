@@ -15,26 +15,24 @@ export default function CodeInputOverlay({ language, onPaste, onUpload }: CodeIn
   const [githubError, setGithubError] = useState('');
 
   const dummyJson = `{
-  "dashboard": {
-    "id": null,
-    "title": "Production Overview",
-    "tags": ["templated"],
-    "timezone": "browser",
-    "panels": [
-      {
-        "type": "timeseries",
-        "title": "CPU Usage",
-        "targets": [
-          {
-            "expr": "node_cpu_seconds_total",
-            "refId": "A"
-          }
-        ]
-      }
-    ],
-    "schemaVersion": 36,
-    "version": 1
-  }
+  "id": null,
+  "title": "Production Overview",
+  "tags": ["templated"],
+  "timezone": "browser",
+  "panels": [
+    {
+      "type": "timeseries",
+      "title": "CPU Usage",
+      "targets": [
+        {
+          "expr": "node_cpu_seconds_total",
+          "refId": "A"
+        }
+      ]
+    }
+  ],
+  "schemaVersion": 36,
+  "version": 1
 }`;
 
   const dummyYaml = `groups:

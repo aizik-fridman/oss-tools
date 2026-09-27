@@ -1,9 +1,8 @@
 import { useState, useEffect, useRef } from 'react';
 import Editor from '@monaco-editor/react';
-import { parse, stringify } from 'yaml';
+import { parse } from 'yaml';
 import { AlertTriangle, CheckCircle, Info, Loader2, Flame, LayoutDashboard } from 'lucide-react';
 import { PrometheusAlertsSchema } from './core/schemas';
-import { convertToUnified as convertAlerts } from './core/converter';
 
 
 import CodeInputOverlay from '../../components/ui/CodeInputOverlay';
@@ -15,10 +14,7 @@ export default function AlertAnalyzerTool() {
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [detectedFormat, setDetectedFormat] = useState<'prometheus' | 'grafana' | null>(null);
   
-  const [prometheusRules, setPrometheusRules] = useState<any>(null);
-  const [convertedYaml, setConvertedYaml] = useState<string | null>(null);
-  const [copied, setCopied] = useState(false);
-  
+        
   const workerRef = useRef<Worker | null>(null);
   const resolversRef = useRef<{ [key: string]: (val: any) => void }>({});
 
@@ -69,7 +65,8 @@ export default function AlertAnalyzerTool() {
       
       const validation = PrometheusAlertsSchema.safeParse(parsedRaw);
       if (!validation.success) {
-        throw new Error('Schema Validation Failed: Invalid Prometheus rules format.');
+        const issues = validation.error.issues.map(i => `${i.path.join('.')}: ${i.message}`).join(', ');
+        throw new Error(`Schema Validation Failed: ${issues}`);
       }
       
       const parsed = validation.data;
@@ -137,30 +134,18 @@ export default function AlertAnalyzerTool() {
       const hasPrometheus = rules.some((r: any) => !!r.alert);
       setDetectedFormat(hasPrometheus ? 'prometheus' : 'grafana');
       if (hasPrometheus) {
-         setPrometheusRules({ original: parsedRaw, rules });
+         
       } else {
-         setPrometheusRules(null);
-         setConvertedYaml(null);
-      }
+         
+               }
 
     } catch (err: any) {
       setError(err.message || 'Failed to parse YAML');
       setAnalysis(null);
-      setPrometheusRules(null);
-      setConvertedYaml(null);
-      setDetectedFormat(null);
+      
+            setDetectedFormat(null);
     } finally {
       setIsAnalyzing(false);
-    }
-  };
-
-  const convertToUnified = () => {
-    if (!prometheusRules) return;
-    try {
-      const res = convertAlerts(prometheusRules);
-      setConvertedYaml(stringify(res, { indent: 2 }));
-    } catch (e) {
-      console.error(e);
     }
   };
 
@@ -266,45 +251,13 @@ export default function AlertAnalyzerTool() {
                       </div>
                     ) : (
                       <div className="flex items-center gap-2 text-emerald-500 text-sm font-bold bg-emerald-950/20 border border-emerald-900/50 rounded-lg p-3">
-                        <CheckCircle size={16} /> Perfect Configuration!
+                        <CheckCircle size={16} /> No structural issues detected.
                       </div>
                     )}
                   </div>
                 ))}
                 
-                {prometheusRules && !convertedYaml && (
-                  <div className="bg-orange-950/30 border border-orange-500/50 rounded-xl p-6 text-center animate-in fade-in mt-8 shadow-xl">
-                    <h3 className="text-orange-400 font-bold mb-2 text-lg">Prometheus Format Detected</h3>
-                    <p className="text-orange-200/80 text-sm mb-4">These alerts are written in standard Prometheus format. You can convert them to Grafana Unified Alerting format if you prefer provisioning them to Grafana instead of Prometheus directly.</p>
-                    <button 
-                      onClick={convertToUnified}
-                      className="px-6 py-2 bg-orange-600 hover:bg-orange-500 text-white font-bold rounded-lg transition-colors"
-                    >
-                      Convert to Grafana Format
-                    </button>
-                  </div>
-                )}
                 
-                {convertedYaml && (
-                  <div className="bg-[#1e1e1e] border border-orange-500/50 rounded-xl mt-8 shadow-2xl relative overflow-hidden animate-in slide-in-from-bottom-4">
-                    <div className="h-12 bg-orange-950/30 border-b border-orange-900/50 flex items-center justify-between px-4 shrink-0">
-                      <span className="text-sm font-bold text-orange-400">Grafana 9+ Unified Alerting</span>
-                      <button 
-                        onClick={() => {
-                          navigator.clipboard.writeText(convertedYaml);
-                          setCopied(true);
-                          setTimeout(() => setCopied(false), 2000);
-                        }} 
-                        className="text-slate-400 hover:text-white transition-colors flex items-center gap-1 text-sm bg-slate-800 px-3 py-1.5 rounded-lg border border-slate-700"
-                      >
-                        {copied ? 'Copied' : 'Copy YAML'}
-                      </button>
-                    </div>
-                    <div className="p-4 max-h-[400px] overflow-auto">
-                      <pre className="text-slate-300 font-mono text-sm leading-relaxed">{convertedYaml}</pre>
-                    </div>
-                  </div>
-                )}
               </div>
             )}
           </div>
