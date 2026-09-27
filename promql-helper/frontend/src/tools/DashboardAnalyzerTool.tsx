@@ -217,6 +217,11 @@ export default function DashboardAnalyzerTool() {
       if (legacyAlerts === 0 && flatPanels.length > 0) sreSuccess.push("No legacy alerting rules embedded in panels.");
 
       setAnalysis({
+        stats: {
+          totalPanels: flatPanels.length,
+          queryPanels,
+          variables: templating.length
+        },
         perfIssues,
         perfSuccess,
         uxIssues,
@@ -368,6 +373,21 @@ export default function DashboardAnalyzerTool() {
                   </div>
                   <div className={`text-5xl font-black ${analysis.score >= 90 ? 'text-emerald-400' : analysis.score >= 70 ? 'text-amber-400' : 'text-red-400'}`}>
                     {analysis.score}<span className="text-2xl text-slate-500">/100</span>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-3 gap-4">
+                  <div className="bg-slate-800/50 border border-slate-700/50 p-4 rounded-xl text-center">
+                    <div className="text-2xl font-bold text-slate-200">{analysis.stats.totalPanels}</div>
+                    <div className="text-xs font-bold text-slate-500 uppercase tracking-wide mt-1">Total Panels</div>
+                  </div>
+                  <div className="bg-slate-800/50 border border-slate-700/50 p-4 rounded-xl text-center">
+                    <div className="text-2xl font-bold text-sky-400">{analysis.stats.queryPanels}</div>
+                    <div className="text-xs font-bold text-slate-500 uppercase tracking-wide mt-1">Query Panels</div>
+                  </div>
+                  <div className="bg-slate-800/50 border border-slate-700/50 p-4 rounded-xl text-center">
+                    <div className="text-2xl font-bold text-fuchsia-400">{analysis.stats.variables}</div>
+                    <div className="text-xs font-bold text-slate-500 uppercase tracking-wide mt-1">Variables</div>
                   </div>
                 </div>
 
