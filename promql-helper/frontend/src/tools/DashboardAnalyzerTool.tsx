@@ -55,6 +55,10 @@ export default function DashboardAnalyzerTool() {
       const uxIssues: string[] = [];
       const sreIssues: string[] = [];
       
+      const perfSuccess: string[] = [];
+      const uxSuccess: string[] = [];
+      const sreSuccess: string[] = [];
+      
       let score = 100;
       let queryPanels = 0;
 
@@ -73,15 +77,22 @@ export default function DashboardAnalyzerTool() {
 
       // 1. Performance & Load Time
       const templating = dash.templating?.list || [];
+      let badVariables = 0;
       templating.forEach((v: any) => {
-        if (v.type === 'query' && v.refresh === 2) { // On Time Range Change
+        if (v.type === 'query' && v.refresh === 2) { 
            if (v.datasource && typeof v.datasource === 'string' && (v.datasource.toLowerCase().includes('prometheus') || v.datasource.toLowerCase().includes('loki'))) {
                perfIssues.push(`Variable '${v.name}' triggers on Time Range Change. This causes lag on zoom. Recommend 'On Dashboard Load'.`);
                score -= 5;
+               badVariables++;
            }
         }
       });
+      if (badVariables === 0 && templating.length > 0) {
+        perfSuccess.push("All template variables refresh efficiently.");
+      }
 
+      let badDataPoints = 0;
+      let badPromQL = 0;
       flatPanels.forEach(p => {
         if (p.targets && p.targets.length > 0) queryPanels++;
         
@@ -90,6 +101,7 @@ export default function DashboardAnalyzerTool() {
            if (!p.maxDataPoints || p.maxDataPoints > 1500) {
               perfIssues.push(`Panel '${p.title || 'Untitled'}' has missing or high maxDataPoints. Cap it to avoid browser lag.`);
               score -= 2;
+              badDataPoints++;
            }
         }
         
@@ -101,27 +113,39 @@ export default function DashboardAnalyzerTool() {
                if ((expr.includes('rate(') || expr.includes('irate(')) && !expr.includes('$__rate_interval') && !expr.includes('$__interval')) {
                  perfIssues.push(`Panel '${p.title || 'Untitled'}': Uses rate() without $__rate_interval. This can cause graphing artifacts.`);
                  score -= 5;
+                 badPromQL++;
                }
                if ((expr.includes('sort(') || expr.includes('sort_desc(')) && !expr.includes('topk') && !expr.includes('bottomk')) {
                  perfIssues.push(`Panel '${p.title || 'Untitled'}': Uses sort() without a bounding function like topk(). This is expensive for the TSDB.`);
                  score -= 5;
+                 badPromQL++;
                }
              }
            });
         }
       });
 
+      if (badDataPoints === 0 && flatPanels.length > 0) perfSuccess.push("Max data points appropriately constrained.");
+      if (badPromQL === 0 && queryPanels > 0) perfSuccess.push("PromQL queries utilize efficient intervals and bounds.");
+
       if (queryPanels > 30) {
         perfIssues.push(`High concurrent connection risk: Found ${queryPanels} query-backed panels. Recommended < 30.`);
         score -= 10;
+      } else if (queryPanels > 0) {
+        perfSuccess.push(`Healthy connection footprint (${queryPanels} query-backed panels).`);
       }
 
       // 2. UX & On-Call Readiness
+      let missingContext = 0;
+      let missingUnits = 0;
+      let missingThresholds = 0;
+
       flatPanels.forEach(p => {
         if (['timeseries', 'graph', 'stat', 'gauge'].includes(p.type)) {
            if (!p.description || p.description.trim() === '') {
               uxIssues.push(`Panel '${p.title || 'Untitled'}' lacks a description. SREs need context during incidents.`);
               score -= 2;
+              missingContext++;
            }
         }
 
@@ -130,6 +154,7 @@ export default function DashboardAnalyzerTool() {
         if (!unit || unit === 'none' || unit === 'short') {
            uxIssues.push(`Panel '${p.title || 'Untitled'}' uses default/no units. Always define explicit units (e.g., bytes, seconds).`);
            score -= 2;
+           missingUnits++;
         }
 
         // Color thresholds
@@ -138,20 +163,29 @@ export default function DashboardAnalyzerTool() {
            if (!steps || steps.length < 2) {
               uxIssues.push(`Panel '${p.title || 'Untitled'}' lacks color thresholds. Red/Yellow/Green indicators are essential for NOC teams.`);
               score -= 3;
+              missingThresholds++;
            }
         }
       });
+      
+      if (missingContext === 0 && flatPanels.length > 0) uxSuccess.push("All complex panels have descriptive context.");
+      if (missingUnits === 0 && flatPanels.length > 0) uxSuccess.push("Explicit units defined for all metrics.");
+      if (missingThresholds === 0 && flatPanels.length > 0) uxSuccess.push("Color thresholds correctly configured.");
 
       // 3. SRE Best Practices
+      let orphanedVars = 0;
+      let nakedRegex = 0;
+      let legacyAlerts = 0;
+
       const dashString = JSON.stringify(dash);
       templating.forEach((v: any) => {
         // Orphaned variables
         const regex = new RegExp(`\\$${v.name}\\b|\\$\\{${v.name}\\}`, 'g');
         const matches = dashString.match(regex);
-        // A match of length 1 means it's only defined in the templating section itself
         if (!matches || matches.length <= 1) {
            sreIssues.push(`Orphaned Variable: '${v.name}' is defined but never used in any panel or query.`);
            score -= 3;
+           orphanedVars++;
         }
 
         // Naked regex
@@ -165,20 +199,29 @@ export default function DashboardAnalyzerTool() {
         if (queryString && (queryString.includes('=~".*"') || queryString.includes('=~ ".*"'))) {
            sreIssues.push(`Variable '${v.name}' uses a naked regex (=~ ".*"). This causes heavy TSDB load. Prefer explicit label matchers.`);
            score -= 5;
+           nakedRegex++;
         }
       });
 
       flatPanels.forEach(p => {
         if (p.alert) {
-           sreIssues.push(`Panel '${p.title || 'Untitled'}' contains an embedded Legacy Alert. Migrate to Grafana Unified Alerting for GitOps compatibility.`);
+           sreIssues.push(`Panel '${p.title || 'Untitled'}' contains an embedded Legacy Alert. Migrate to Grafana Unified Alerting.`);
            score -= 5;
+           legacyAlerts++;
         }
       });
 
+      if (orphanedVars === 0 && templating.length > 0) sreSuccess.push("No orphaned template variables.");
+      if (nakedRegex === 0 && templating.length > 0) sreSuccess.push("No naked regexes in queries.");
+      if (legacyAlerts === 0 && flatPanels.length > 0) sreSuccess.push("No legacy alerting rules embedded in panels.");
+
       setAnalysis({
         perfIssues,
+        perfSuccess,
         uxIssues,
+        uxSuccess,
         sreIssues,
+        sreSuccess,
         score: Math.max(0, score),
         originalDash: dash
       });
@@ -205,7 +248,7 @@ export default function DashboardAnalyzerTool() {
     setTimeout(() => setCopied(false), 2000);
   };
 
-  const CategorySection = ({ title, icon: Icon, issues, catKey, color }: any) => {
+  const CategorySection = ({ title, icon: Icon, issues, successes, catKey, color }: any) => {
     const isExpanded = expandedCats[catKey];
     return (
       <div className={`bg-slate-900/50 border border-slate-800 rounded-xl overflow-hidden`}>
@@ -217,18 +260,14 @@ export default function DashboardAnalyzerTool() {
             <Icon className={color} size={20} />
             <span className="font-bold text-slate-200">{title}</span>
             <span className={`px-2 py-0.5 rounded-full text-xs font-bold ${issues.length > 0 ? 'bg-amber-500/20 text-amber-400' : 'bg-emerald-500/20 text-emerald-400'}`}>
-              {issues.length} Issues
+              {issues.length > 0 ? `${issues.length} Issues` : 'All Good'}
             </span>
           </div>
           {isExpanded ? <ChevronDown size={20} className="text-slate-500" /> : <ChevronRight size={20} className="text-slate-500" />}
         </button>
         {isExpanded && (
-          <div className="p-4">
-            {issues.length === 0 ? (
-              <div className="flex items-center gap-2 text-emerald-400 text-sm">
-                <CheckCircle size={16} /> All good! No issues found in this category.
-              </div>
-            ) : (
+          <div className="p-4 space-y-4">
+            {issues.length > 0 && (
               <ul className="space-y-3">
                 {issues.map((iss: string, idx: number) => (
                   <li key={idx} className="flex items-start gap-3 text-sm text-slate-300">
@@ -237,6 +276,24 @@ export default function DashboardAnalyzerTool() {
                   </li>
                 ))}
               </ul>
+            )}
+            {successes && successes.length > 0 && (
+              <div className={issues.length > 0 ? 'pt-4 border-t border-slate-800' : ''}>
+                <h4 className="text-xs font-bold text-emerald-500 mb-2 uppercase tracking-wider">Passed Checks</h4>
+                <ul className="space-y-2">
+                  {successes.map((suc: string, idx: number) => (
+                    <li key={idx} className="flex items-start gap-3 text-sm text-slate-400">
+                      <CheckCircle size={14} className="text-emerald-500 shrink-0 mt-0.5" />
+                      <span>{suc}</span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
+            {issues.length === 0 && (!successes || successes.length === 0) && (
+               <div className="flex items-center gap-2 text-emerald-400 text-sm">
+                 <CheckCircle size={16} /> All good! No issues found in this category.
+               </div>
             )}
           </div>
         )}
@@ -303,9 +360,9 @@ export default function DashboardAnalyzerTool() {
                 </div>
 
                 <div className="space-y-4">
-                  <CategorySection title="Performance & Load Time" icon={Activity} issues={analysis.perfIssues} catKey="perf" color="text-sky-400" />
-                  <CategorySection title="UX & On-Call Readiness" icon={Users} issues={analysis.uxIssues} catKey="ux" color="text-fuchsia-400" />
-                  <CategorySection title="SRE Best Practices & Hygiene" icon={ShieldAlert} issues={analysis.sreIssues} catKey="sre" color="text-emerald-400" />
+                  <CategorySection title="Performance & Load Time" icon={Activity} issues={analysis.perfIssues} successes={analysis.perfSuccess} catKey="perf" color="text-sky-400" />
+                  <CategorySection title="UX & On-Call Readiness" icon={Users} issues={analysis.uxIssues} successes={analysis.uxSuccess} catKey="ux" color="text-fuchsia-400" />
+                  <CategorySection title="SRE Best Practices & Hygiene" icon={ShieldAlert} issues={analysis.sreIssues} successes={analysis.sreSuccess} catKey="sre" color="text-emerald-400" />
                 </div>
               </div>
             )}
