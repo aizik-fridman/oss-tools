@@ -584,7 +584,7 @@ export default function DashboardAnalyzerTool() {
                 }}
               />
             </div>
-            <div className="flex gap-4">
+            <div className="flex flex-col sm:flex-row gap-4">
               <button
                 onClick={analyzeDashboard}
                 className="flex-1 py-3 bg-pink-900/30 border border-pink-500/50 hover:bg-pink-800/50 text-pink-400 font-bold rounded-xl transition-colors shadow-lg"
@@ -643,7 +643,7 @@ export default function DashboardAnalyzerTool() {
                   </div>
                 </div>
 
-                <div className="grid grid-cols-4 gap-4">
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
                   <div className="bg-slate-800/50 border border-slate-700/50 p-4 rounded-xl text-center">
                     <div className="text-xl font-bold text-slate-200">{analysis.stats.totalPanels}</div>
                     <div className="text-[10px] font-bold text-slate-500 uppercase tracking-wide mt-1">Panels</div>

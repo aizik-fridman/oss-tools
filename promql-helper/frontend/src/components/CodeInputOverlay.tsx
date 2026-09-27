@@ -87,13 +87,13 @@ export default function CodeInputOverlay({ language, onPaste, onUpload }: CodeIn
         </h3>
         <button 
           onClick={handlePasteClick} 
-          className="flex items-center justify-center gap-3 w-64 py-3 bg-sky-600 hover:bg-sky-500 text-white font-bold rounded-xl transition-all shadow-lg hover:shadow-sky-500/25"
+          className="flex items-center justify-center gap-3 w-full sm:w-64 py-3 bg-sky-600 hover:bg-sky-500 text-white font-bold rounded-xl transition-all shadow-lg hover:shadow-sky-500/25"
         >
           <Clipboard size={18} /> Paste {language.toUpperCase()}
         </button>
         <button 
           onClick={() => fileInputRef.current?.click()} 
-          className="flex items-center justify-center gap-3 w-64 py-3 bg-slate-700 hover:bg-slate-600 text-white font-bold rounded-xl transition-all shadow-lg"
+          className="flex items-center justify-center gap-3 w-full sm:w-64 py-3 bg-slate-700 hover:bg-slate-600 text-white font-bold rounded-xl transition-all shadow-lg"
         >
           <Upload size={18} /> Upload File
         </button>

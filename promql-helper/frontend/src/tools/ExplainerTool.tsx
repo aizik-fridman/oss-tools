@@ -199,13 +199,21 @@ export default function App() {
     })
   }
 
+  const [windowWidth, setWindowWidth] = useState(window.innerWidth);
+
+  useEffect(() => {
+    const handleResize = () => setWindowWidth(window.innerWidth);
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
+
   return (
     <div className="h-full bg-[#0f172a] flex flex-col overflow-hidden">
-      <header className="h-16 flex items-center justify-between px-6 bg-slate-900 border-b border-slate-800 shrink-0">
-        <h1 className="text-2xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-sky-400 to-emerald-400">
+      <header className="h-auto md:h-16 flex flex-col md:flex-row items-start md:items-center justify-between px-6 py-4 md:py-0 bg-slate-900 border-b border-slate-800 shrink-0 gap-4 md:gap-0">
+        <h1 className="text-xl md:text-2xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-sky-400 to-emerald-400">
           PromQL Helper
         </h1>
-        <div className="flex items-center gap-4">
+        <div className="flex flex-wrap items-center gap-2 md:gap-4">
           {!wasmReady && <span className="text-amber-400 text-sm animate-pulse">WASM Loading...</span>}
           <button onClick={handleFormat} className="px-4 py-1.5 bg-slate-800 hover:bg-slate-700 text-sky-400 text-sm font-medium rounded-lg transition-colors border border-slate-700">
             Format
@@ -217,7 +225,7 @@ export default function App() {
       </header>
 
       <div className="flex-1 overflow-hidden">
-        <PanelGroup direction="horizontal">
+        <PanelGroup direction={windowWidth < 768 ? "vertical" : "horizontal"}>
           
           {/* Editor Panel */}
           <Panel defaultSize={50} minSize={30}>
@@ -245,8 +253,8 @@ export default function App() {
             </div>
           </Panel>
 
-          <PanelResizeHandle className="w-2 bg-slate-900 hover:bg-sky-500/50 transition-colors cursor-col-resize flex flex-col items-center justify-center">
-            <div className="h-8 w-1 bg-slate-700 rounded-full" />
+          <PanelResizeHandle className={`${windowWidth < 768 ? 'h-2 w-full cursor-row-resize flex-row' : 'w-2 h-full cursor-col-resize flex-col'} bg-slate-900 hover:bg-sky-500/50 transition-colors flex items-center justify-center`}>
+            <div className={`${windowWidth < 768 ? 'w-8 h-1' : 'h-8 w-1'} bg-slate-700 rounded-full`} />
           </PanelResizeHandle>
 
           {/* Analysis Panel */}
