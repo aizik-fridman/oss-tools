@@ -1,4 +1,5 @@
 import { Link } from 'react-router-dom';
+import { Helmet } from 'react-helmet-async';
 import { Search, LayoutDashboard, FileWarning, Calculator, ArrowRight } from 'lucide-react';
 
 export default function HomePage() {
@@ -43,6 +44,10 @@ export default function HomePage() {
 
   return (
     <div className="flex-1 overflow-y-auto p-8 bg-[#0f172a] flex items-center justify-center min-h-screen">
+      <Helmet>
+        <title>Observability Helpers | Optimize your LGTM systems</title>
+        <meta name="description" content="A suite of 100% client-side, WebAssembly-powered tools to build, analyze, and optimize your monitoring stack." />
+      </Helmet>
       <div className="max-w-4xl w-full">
         <header className="text-center mb-16 animate-in fade-in slide-in-from-bottom-4 duration-700">
           <h1 className="text-4xl md:text-5xl font-bold font-space text-transparent bg-clip-text bg-gradient-to-r from-sky-400 to-emerald-400 mb-4 tracking-tight">

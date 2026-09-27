@@ -1,5 +1,6 @@
 import { useState, useMemo } from 'react';
 import { Calculator } from 'lucide-react';
+import { Helmet } from 'react-helmet-async';
 
 const TIME_WINDOWS = [
   { label: '24 Hours', hours: 24 },
@@ -59,6 +60,11 @@ export default function SreCalculator() {
 
   return (
     <div className="h-full overflow-y-auto bg-[#0f172a] text-slate-200 p-8 font-sans">
+      <Helmet>
+        <title>SRE Calculators (SLO & Error Budget) | Observability Helpers</title>
+        <meta name="description" content="Calculate Service Level Objectives (SLOs), Service Level Indicators (SLIs), and Error Budgets instantly in your browser." />
+        <meta name="keywords" content="SRE, SLO, SLI, Error Budget, Calculator, Allowed Downtime, Site Reliability Engineering" />
+      </Helmet>
       <div className="max-w-4xl mx-auto space-y-12">
         
         {/* Header */}

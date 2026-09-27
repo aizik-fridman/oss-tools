@@ -9,6 +9,7 @@ type SyntaxError = { message: string; start: number; end: number; };
 type ParseResult = { formatted: string; explanation: NodeInfo; warnings: string[]; error: string; syntaxErrs?: SyntaxError[]; };
 
 import type * as Monaco from 'monaco-editor'
+import { Helmet } from 'react-helmet-async'
 
 function preprocessGrafanaVariables(query: string) {
   let sanitized = query;
@@ -191,6 +192,11 @@ export default function App() {
 
   return (
     <div className="h-full bg-[#0f172a] flex flex-col overflow-hidden">
+      <Helmet>
+        <title>PromQL Helper & Explainer | Observability Helpers</title>
+        <meta name="description" content="Safely write, format, and explain PromQL queries in the browser using WebAssembly. Catch syntax errors before querying Prometheus." />
+        <meta name="keywords" content="PromQL, Prometheus, Query Language, Formatter, Explainer, Syntax, WASM" />
+      </Helmet>
       <header className="h-auto md:h-16 flex flex-col md:flex-row items-start md:items-center justify-between px-6 py-4 md:py-0 bg-slate-900 border-b border-slate-800 shrink-0 gap-4 md:gap-0">
         <h1 className="text-xl md:text-2xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-sky-400 to-emerald-400">
           PromQL Helper
