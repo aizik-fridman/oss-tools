@@ -10,6 +10,27 @@ type ParseResult = { formatted: string; explanation: NodeInfo; warnings: string[
 
 import type * as Monaco from 'monaco-editor'
 
+function preprocessGrafanaVariables(query: string) {
+  let sanitized = query;
+  const replacements: Array<{ dummy: string, original: string }> = [];
+  
+  let dId = 1;
+  sanitized = sanitized.replace(/\[\s*(\$[a-zA-Z0-9_]+)\s*\]/g, (_, varName) => {
+    const dummyDuration = `5m${dId++}ms`;
+    replacements.push({ dummy: dummyDuration, original: varName });
+    return `[${dummyDuration}]`;
+  });
+
+  let vId = 1;
+  sanitized = sanitized.replace(/(=|!=|=~|!~)\s*"?(\$[a-zA-Z0-9_]+)"?/g, (_, op, varName) => {
+    const dummyVal = `dummy_var_${vId++}`;
+    replacements.push({ dummy: dummyVal, original: varName });
+    return `${op}"${dummyVal}"`;
+  });
+
+  return { sanitized, replacements };
+}
+
 export default function App() {
   const monaco = useMonaco()
   const workerRef = useRef<Worker | null>(null)
@@ -25,7 +46,8 @@ export default function App() {
     }
   }, [monaco])
 
-  const resolversRef = useRef<{ [key: string]: (val: any) => void }>({})
+    const resolversRef = useRef<{ [key: string]: (val: any) => void }>({})
+  const replacementsMapRef = useRef<{ [key: string]: Array<{ dummy: string, original: string }> }>({})
 
   // Setup Web Worker
   useEffect(() => {
@@ -38,17 +60,28 @@ export default function App() {
         setWasmReady(true)
       } else if (type === 'PARSE_RESULT' || type === 'ERROR') {
         const resolve = resolversRef.current[id];
+        const replacements = replacementsMapRef.current[id] || [];
+        
         if (resolve) {
           if (type === 'ERROR') {
-            resolve({ error: payload } as ParseResult)
+            let errorMsg = payload;
+            replacements.forEach(({ dummy, original }) => {
+              errorMsg = errorMsg.replace(new RegExp(dummy, 'g'), original);
+            });
+            resolve({ error: errorMsg } as ParseResult)
           } else {
             try {
-              resolve(JSON.parse(payload))
+              let restoredPayload = payload;
+              replacements.forEach(({ dummy, original }) => {
+                restoredPayload = restoredPayload.replace(new RegExp(dummy, 'g'), original);
+              });
+              resolve(JSON.parse(restoredPayload))
             } catch(err) {
               resolve({ error: 'Parse JSON Failed' } as ParseResult)
             }
           }
           delete resolversRef.current[id];
+          delete replacementsMapRef.current[id];
         }
       }
     }
@@ -92,9 +125,12 @@ export default function App() {
 
       if (workerRef.current) {
         const id = Math.random().toString(36).substring(2, 9);
+        const { sanitized, replacements } = preprocessGrafanaVariables(query);
+        
         new Promise((resolve) => {
           resolversRef.current[id] = resolve;
-          workerRef.current?.postMessage({ type: 'PARSE', payload: query, id })
+          replacementsMapRef.current[id] = replacements;
+          workerRef.current?.postMessage({ type: 'PARSE', payload: sanitized, id })
         }).then((res: any) => setResult(res));
       }
     } else {
