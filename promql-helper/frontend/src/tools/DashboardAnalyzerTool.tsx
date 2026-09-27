@@ -3,7 +3,7 @@ import Editor from '@monaco-editor/react';
 import { LayoutDashboard, CheckCircle, AlertTriangle, AlertCircle, Copy, Check, ChevronDown, ChevronRight, Activity, Users, ShieldAlert, Info as InfoIcon } from 'lucide-react';
 import { z } from 'zod';
 
-export type Severity = 'critical' | 'warning' | 'info';
+export type Severity = 'critical' | 'warning' | 'info' | 'success';
 export type Confidence = 'high' | 'medium' | 'low';
 export type Category = 'performance' | 'ux' | 'sre';
 
@@ -68,6 +68,19 @@ export function performAnalysis(dash: any): AnalysisResult {
   let totalTargets = 0;
   let variables = 0;
 
+  // Track issues to report successes
+  let hasLongTimeRange = false;
+  let hasFastRefresh = false;
+  let badVarRefresh = 0;
+  let orphanedVars = 0;
+  let broadRegexVars = 0;
+  let missingDesc = 0;
+  let missingDP = 0;
+  let missingUnits = 0;
+  let missingThresholds = 0;
+  let legacyAlerts = 0;
+  let badPromQL = 0;
+
   const addFinding = (f: Omit<Finding, 'id'>) => {
     findings.push({ ...f, id: Math.random().toString(36).substr(2, 9) });
   };
@@ -94,6 +107,7 @@ export function performAnalysis(dash: any): AnalysisResult {
   if (dash.time && dash.time.from) {
     const from = dash.time.from;
     if (from.match(/now-[7-9]d|now-[1-9][0-9]d|now-[1-9]w|now-[1-9]M|now-[1-9]y/)) {
+      hasLongTimeRange = true;
       addFinding({
         severity: 'info',
         confidence: 'medium',
@@ -107,6 +121,7 @@ export function performAnalysis(dash: any): AnalysisResult {
 
   markCheck('refresh_interval');
   if (dash.refresh && ['5s', '10s'].includes(dash.refresh)) {
+    hasFastRefresh = true;
     addFinding({
       severity: 'warning',
       confidence: 'medium',
@@ -125,6 +140,7 @@ export function performAnalysis(dash: any): AnalysisResult {
   templating.forEach((v: any) => {
     markCheck('variable_refresh');
     if (v.type === 'query' && v.refresh === 2) {
+      badVarRefresh++;
       addFinding({
         severity: 'warning',
         confidence: 'medium',
@@ -139,10 +155,8 @@ export function performAnalysis(dash: any): AnalysisResult {
     markCheck('variable_orphaned');
     const varRegex = new RegExp(`\\$${v.name}(?![a-zA-Z0-9_])|\\$\\{${v.name}(:[a-zA-Z0-9_]+)?\\}`, 'g');
     const matches = dashString.match(varRegex);
-    // If it only matches 0 or 1 time, it means it's likely only the declaration in the templating list itself.
-    // However, the declaration name is inside "name":"instance", so it doesn't have the $ prefix!
-    // Therefore, if there are ANY matches of $instance or ${instance}, it means it IS used.
     if (!matches || matches.length === 0) {
+      orphanedVars++;
       addFinding({
         severity: 'warning',
         confidence: 'high',
@@ -163,6 +177,7 @@ export function performAnalysis(dash: any): AnalysisResult {
     }
     
     if (queryString && queryString.match(/=~\s*['"].*\*['"]/)) {
+      broadRegexVars++;
       addFinding({
         severity: 'warning',
         confidence: 'medium',
@@ -185,6 +200,7 @@ export function performAnalysis(dash: any): AnalysisResult {
 
     markCheck('panel_description');
     if (!p.description || p.description.trim() === '') {
+      missingDesc++;
       let conf: Confidence = 'low';
       if (['timeseries', 'graph', 'stat', 'gauge'].includes(p.type)) conf = 'medium';
       
@@ -202,6 +218,7 @@ export function performAnalysis(dash: any): AnalysisResult {
     markCheck('panel_maxDataPoints');
     if (['timeseries', 'graph'].includes(p.type)) {
       if (!p.maxDataPoints) {
+        missingDP++;
         addFinding({
           severity: 'info',
           confidence: 'low',
@@ -219,6 +236,7 @@ export function performAnalysis(dash: any): AnalysisResult {
     if (!unit || unit === 'none' || unit === 'short') {
       const skipUnits = ['text', 'table', 'logs', 'traces', 'alertlist', 'dashlist'];
       if (!skipUnits.includes(p.type)) {
+        missingUnits++;
         addFinding({
           severity: 'info',
           confidence: 'medium',
@@ -235,6 +253,7 @@ export function performAnalysis(dash: any): AnalysisResult {
     if (['stat', 'gauge'].includes(p.type)) {
       const steps = p.fieldConfig?.defaults?.thresholds?.steps || p.options?.fieldOptions?.thresholds?.steps;
       if (!steps || steps.length < 2) {
+        missingThresholds++;
         let conf: Confidence = 'low';
         const tLower = title.toLowerCase();
         if (tLower.includes('cpu') || tLower.includes('memory') || tLower.includes('disk') || tLower.includes('latency') || tLower.includes('error') || tLower.includes('availability')) {
@@ -254,6 +273,7 @@ export function performAnalysis(dash: any): AnalysisResult {
 
     markCheck('legacy_alert');
     if (p.alert) {
+      legacyAlerts++;
       addFinding({
         severity: 'warning',
         confidence: 'high',
@@ -272,6 +292,7 @@ export function performAnalysis(dash: any): AnalysisResult {
           const expr = t.expr;
           
           if ((expr.includes('rate(') || expr.includes('irate(')) && !expr.includes('$__rate_interval')) {
+            badPromQL++;
             addFinding({
               severity: 'warning',
               confidence: 'medium',
@@ -286,6 +307,7 @@ export function performAnalysis(dash: any): AnalysisResult {
           const heavyConstructs = ['sort(', 'sort_desc(', 'count_values(', 'histogram_quantile(', 'label_replace(', 'label_join('];
           for (const construct of heavyConstructs) {
             if (expr.includes(construct)) {
+              badPromQL++;
               addFinding({
                 severity: 'info',
                 confidence: 'medium',
@@ -299,6 +321,7 @@ export function performAnalysis(dash: any): AnalysisResult {
           }
 
           if (expr.match(/{[a-zA-Z_]+}=~\s*['"].*\*['"]/)) {
+            badPromQL++;
             addFinding({
               severity: 'warning',
               confidence: 'medium',
@@ -314,6 +337,23 @@ export function performAnalysis(dash: any): AnalysisResult {
     }
   });
 
+  // Explicit Success Findings
+  if (!hasLongTimeRange) addFinding({ severity: 'success', confidence: 'high', category: 'performance', title: 'Efficient Time Range', description: 'Dashboard default time range is reasonably bounded.' });
+  if (!hasFastRefresh) addFinding({ severity: 'success', confidence: 'high', category: 'performance', title: 'Safe Refresh Interval', description: 'No overly aggressive dashboard refresh intervals detected.' });
+  if (variables > 0) {
+    if (badVarRefresh === 0) addFinding({ severity: 'success', confidence: 'high', category: 'performance', title: 'Optimal Variable Refresh', description: 'All query variables refresh efficiently on dashboard load.' });
+    if (orphanedVars === 0) addFinding({ severity: 'success', confidence: 'high', category: 'sre', title: 'No Orphaned Variables', description: 'All defined template variables are actively used.' });
+    if (broadRegexVars === 0) addFinding({ severity: 'success', confidence: 'high', category: 'sre', title: 'Optimized Regex Variables', description: 'No broad regex matchers detected in variables.' });
+  }
+  if (totalPanels > 0) {
+    if (missingDesc === 0) addFinding({ severity: 'success', confidence: 'high', category: 'ux', title: 'Complete Descriptions', description: 'All relevant panels have descriptive context for on-call users.' });
+    if (missingDP === 0 && queryPanels > 0) addFinding({ severity: 'success', confidence: 'high', category: 'performance', title: 'Bounded Data Points', description: 'All timeseries panels explicitly define maxDataPoints.' });
+    if (missingUnits === 0) addFinding({ severity: 'success', confidence: 'high', category: 'ux', title: 'Explicit Units', description: 'All relevant panels have explicitly defined units.' });
+    if (missingThresholds === 0) addFinding({ severity: 'success', confidence: 'high', category: 'ux', title: 'Configured Thresholds', description: 'All relevant stat/gauge panels have color thresholds.' });
+    if (legacyAlerts === 0) addFinding({ severity: 'success', confidence: 'high', category: 'sre', title: 'Modern Alerting', description: 'No legacy panel alerts detected.' });
+    if (badPromQL === 0 && queryPanels > 0) addFinding({ severity: 'success', confidence: 'high', category: 'performance', title: 'Efficient PromQL', description: 'Queries utilize efficient rate intervals and bounded selections.' });
+  }
+
   const warnings = findings.filter(f => f.severity === 'warning').length;
   const critical = findings.filter(f => f.severity === 'critical').length;
   const info = findings.filter(f => f.severity === 'info').length;
@@ -325,9 +365,7 @@ export function performAnalysis(dash: any): AnalysisResult {
       totalTargets,
       variables,
       checksRun: checksRun.size,
-      passed: checksRun.size > 0 ? Math.max(0, checksRun.size - findings.length) : 0, 
-      // passed represents the number of checks that yielded no findings (rough approximation, as a single check can yield multiple findings)
-      // Actually, standardizing `passed` as `total checks passed across the board` is tricky. The user says "14 Checks, 9 Passed".
+      passed: findings.filter(f => f.severity === 'success').length, 
       warnings,
       critical,
       info
@@ -343,8 +381,10 @@ export default function DashboardAnalyzerTool() {
   const [error, setError] = useState<string | null>(null);
   const [cleanJson, setCleanJson] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
+  
+  // Default closed!
   const [expandedCats, setExpandedCats] = useState<Record<string, boolean>>({
-    performance: true, ux: true, sre: true
+    performance: false, ux: false, sre: false
   });
 
   const toggleCat = (cat: string) => {
@@ -363,14 +403,13 @@ export default function DashboardAnalyzerTool() {
       }
       
       const res = performAnalysis(parsed.data);
-      
-      // Calculate realistic "Passed" metric (12 categories of checks - categories that yielded findings)
-      const uniqueTriggeredChecks = new Set(res.findings.map(f => f.title)).size;
       const totalPossibleChecks = 12; // Static number of check categories implemented
       res.stats.checksRun = totalPossibleChecks;
-      res.stats.passed = Math.max(0, totalPossibleChecks - uniqueTriggeredChecks);
-
+      // passed count is exactly the number of success findings emitted
+      
       setAnalysis(res);
+      // Optional: expand all if needed, but user explicitly said default closed. We will leave them closed.
+      setExpandedCats({ performance: false, ux: false, sre: false });
     } catch (err: any) {
       setError(err.message || 'Failed to parse JSON. Make sure it is valid Grafana JSON.');
       setAnalysis(null);
@@ -393,14 +432,28 @@ export default function DashboardAnalyzerTool() {
   const FindingCard = ({ finding }: { finding: Finding }) => {
     const isCritical = finding.severity === 'critical';
     const isWarning = finding.severity === 'warning';
+    const isInfo = finding.severity === 'info';
+    const isSuccess = finding.severity === 'success';
     
+    const bgClass = isCritical ? 'bg-red-950/30 border-red-900/50' : 
+                    isWarning ? 'bg-amber-950/30 border-amber-900/50' : 
+                    isInfo ? 'bg-sky-950/30 border-sky-900/50' : 
+                    'bg-emerald-950/30 border-emerald-900/50';
+
+    const textClass = isCritical ? 'text-red-400' : 
+                      isWarning ? 'text-amber-400' : 
+                      isInfo ? 'text-sky-400' : 
+                      'text-emerald-400';
+    
+    const IconComponent = isCritical ? AlertCircle : isWarning ? AlertTriangle : isInfo ? InfoIcon : CheckCircle;
+
     return (
-      <div className={`p-4 rounded-xl border ${isCritical ? 'bg-red-950/30 border-red-900/50' : isWarning ? 'bg-amber-950/30 border-amber-900/50' : 'bg-sky-950/30 border-sky-900/50'} mb-3 last:mb-0`}>
+      <div className={`p-4 border ${bgClass} rounded-lg mb-3 last:mb-0`}>
         <div className="flex items-start justify-between mb-2">
           <div className="flex items-center gap-2">
-            {isCritical ? <AlertCircle size={16} className="text-red-400" /> : isWarning ? <AlertTriangle size={16} className="text-amber-400" /> : <InfoIcon size={16} className="text-sky-400" />}
-            <h4 className={`font-bold text-sm ${isCritical ? 'text-red-400' : isWarning ? 'text-amber-400' : 'text-sky-400'}`}>
-              [{finding.severity.toUpperCase()}] {finding.title}
+            <IconComponent size={16} className={textClass} />
+            <h4 className={`font-bold text-sm ${textClass}`}>
+              {isSuccess ? finding.title : `[${finding.severity.toUpperCase()}] ${finding.title}`}
             </h4>
           </div>
           <span className={`text-[10px] uppercase font-bold px-2 py-0.5 rounded-full border ${
@@ -418,9 +471,32 @@ export default function DashboardAnalyzerTool() {
           </div>
         )}
         
-        <p className="text-sm text-slate-300 mb-1">{finding.description}</p>
+        <p className={`text-sm ${isSuccess ? 'text-slate-400' : 'text-slate-300'} mb-1`}>{finding.description}</p>
         {finding.recommendation && (
           <p className="text-sm text-emerald-400/90 italic">{finding.recommendation}</p>
+        )}
+      </div>
+    );
+  };
+
+  const SevAccordion = ({ title, findings, icon: Icon, color, bgClass }: any) => {
+    // Default closed
+    const [isOpen, setIsOpen] = useState(false);
+    if (findings.length === 0) return null;
+    return (
+      <div className={`border ${bgClass} rounded-lg overflow-hidden mb-3 last:mb-0`}>
+        <button onClick={() => setIsOpen(!isOpen)} className={`w-full flex items-center justify-between p-3 bg-slate-900/80 hover:bg-slate-800 transition-colors`}>
+          <div className="flex items-center gap-2">
+            <Icon size={16} className={color} />
+            <span className={`font-bold text-sm ${color}`}>{title}</span>
+            <span className="text-[10px] bg-slate-800 px-2 py-0.5 rounded-full font-bold text-slate-300 border border-slate-700/50">{findings.length}</span>
+          </div>
+          {isOpen ? <ChevronDown size={16} className={color} /> : <ChevronRight size={16} className={color} />}
+        </button>
+        {isOpen && (
+          <div className="p-3 space-y-3 bg-slate-900/40 border-t border-slate-800/50">
+            {findings.map((f: Finding) => <FindingCard key={f.id} finding={f} />)}
+          </div>
         )}
       </div>
     );
@@ -429,6 +505,13 @@ export default function DashboardAnalyzerTool() {
   const CategorySection = ({ title, icon: Icon, catKey, color }: any) => {
     const isExpanded = expandedCats[catKey];
     const catFindings = analysis?.findings.filter(f => f.category === catKey) || [];
+    const issuesCount = catFindings.filter(f => f.severity !== 'success').length;
+    const hasIssues = issuesCount > 0;
+
+    const criticals = catFindings.filter(f => f.severity === 'critical');
+    const warnings = catFindings.filter(f => f.severity === 'warning');
+    const infos = catFindings.filter(f => f.severity === 'info');
+    const successes = catFindings.filter(f => f.severity === 'success');
     
     return (
       <div className={`bg-slate-900/50 border border-slate-800 rounded-xl overflow-hidden`}>
@@ -439,17 +522,20 @@ export default function DashboardAnalyzerTool() {
           <div className="flex items-center gap-3">
             <Icon className={color} size={20} />
             <span className="font-bold text-slate-200">{title}</span>
-            <span className={`px-2 py-0.5 rounded-full text-xs font-bold ${catFindings.length > 0 ? 'bg-amber-500/20 text-amber-400' : 'bg-emerald-500/20 text-emerald-400'}`}>
-              {catFindings.length > 0 ? `${catFindings.length} Findings` : 'All Good'}
+            <span className={`px-2 py-0.5 rounded-full text-xs font-bold ${hasIssues ? 'bg-amber-500/20 text-amber-400' : 'bg-emerald-500/20 text-emerald-400'}`}>
+              {hasIssues ? `${issuesCount} Issues` : 'All Clean'}
             </span>
           </div>
           {isExpanded ? <ChevronDown size={20} className="text-slate-500" /> : <ChevronRight size={20} className="text-slate-500" />}
         </button>
         {isExpanded && (
-          <div className="p-4 bg-slate-900/30">
+          <div className="p-4 bg-slate-900/20">
             {catFindings.length > 0 ? (
-              <div>
-                {catFindings.map(f => <FindingCard key={f.id} finding={f} />)}
+              <div className="space-y-3">
+                <SevAccordion title="Critical Issues" findings={criticals} icon={AlertCircle} color="text-red-400" bgClass="border-red-900/30" />
+                <SevAccordion title="Warnings" findings={warnings} icon={AlertTriangle} color="text-amber-400" bgClass="border-amber-900/30" />
+                <SevAccordion title="Info / Recommendations" findings={infos} icon={InfoIcon} color="text-sky-400" bgClass="border-sky-900/30" />
+                <SevAccordion title="Passed Checks" findings={successes} icon={CheckCircle} color="text-emerald-400" bgClass="border-emerald-900/30" />
               </div>
             ) : (
               <div className="flex items-center gap-2 text-emerald-400 text-sm">
