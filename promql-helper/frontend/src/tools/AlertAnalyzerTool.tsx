@@ -26,6 +26,8 @@ const PrometheusAlertsSchema = z.union([
   z.array(AlertRuleSchema)
 ]);
 
+import CodeInputOverlay from '../components/CodeInputOverlay';
+
 export default function AlertAnalyzerTool() {
   const [yamlInput, setYamlInput] = useState('');
   const [analysis, setAnalysis] = useState<any[] | null>(null);
@@ -235,7 +237,14 @@ export default function AlertAnalyzerTool() {
 
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
           <div className="space-y-4 flex flex-col">
-            <div className="w-full h-[500px] border border-slate-700 rounded-xl overflow-hidden shadow-inner bg-[#1e1e1e]">
+            <div className="w-full h-[500px] border border-slate-700 rounded-xl overflow-hidden shadow-inner bg-[#1e1e1e] relative">
+              {!yamlInput && (
+                <CodeInputOverlay 
+                  language="yaml" 
+                  onPaste={(text) => setYamlInput(text)}
+                  onUpload={(text) => setYamlInput(text)}
+                />
+              )}
               <Editor
                 height="100%"
                 language="yaml"
