@@ -25,7 +25,7 @@ export default function HomePage() {
       path: '/alert-analyzer', 
       name: 'Alert Analyzer', 
       icon: FileWarning,
-      description: 'Validate Prometheus alert rules and migrate them to Unified Alerting.',
+      description: 'Validate and lint Prometheus alerting rules and Grafana Unified Alerting files.',
       color: 'text-amber-400',
       bgClass: 'bg-amber-400/10 hover:bg-amber-400/20',
       borderClass: 'border-amber-500/20'

@@ -183,12 +183,13 @@ export default function App() {
                 <Editor
                   height="100%"
                   language="promql"
-                  theme="promql-dark"
-                  value={query}
+                  theme={monaco ? 'promql-dark' : 'vs-dark'}
+                                    value={query}
                   onChange={q => setQuery(q || '')}
                   onMount={(editor) => { editorRef.current = editor }}
                   options={{
                     minimap: { enabled: false },
+                      wordWrap: 'on',
                     fontSize: 14,
                     fontFamily: 'ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace',
                     padding: { top: 16 },

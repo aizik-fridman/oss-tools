@@ -94,6 +94,12 @@ export default function PortalLayout() {
                 <div className="h-px bg-slate-800 w-full" />
                 
                 <p className="text-xs text-slate-400">
+                  <strong className="text-slate-300">Privacy & Limits:</strong> 100% of the analysis runs locally in your browser. No data, YAMLs, or queries are sent to any external server. 
+                </p>
+                
+                <div className="h-px bg-slate-800 w-full" />
+                
+                <p className="text-xs text-slate-400">
                   <strong className="text-slate-300">Disclaimer:</strong> This site was created with the assistance of AI for personal purposes. 
                   If you found it helpful or encountered a bug, please report it here:
                   <br/>

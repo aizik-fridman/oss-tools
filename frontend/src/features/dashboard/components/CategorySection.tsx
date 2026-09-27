@@ -10,8 +10,7 @@ export const CategorySection = ({ title, icon: Icon, catKey, color, analysis, ex
   const criticals = catFindings.filter((f: any) => f.severity === 'critical');
   const warnings = catFindings.filter((f: any) => f.severity === 'warning');
   const infos = catFindings.filter((f: any) => f.severity === 'info');
-  const successes = catFindings.filter((f: any) => f.severity === 'success');
-  
+    
   return (
     <div className={`bg-slate-900/50 border border-slate-800 rounded-xl overflow-hidden`}>
       <button 
@@ -34,8 +33,7 @@ export const CategorySection = ({ title, icon: Icon, catKey, color, analysis, ex
               <SevAccordion title="Critical Issues" findings={criticals} icon={AlertCircle} color="text-red-400" bgClass="border-red-900/30" />
               <SevAccordion title="Warnings" findings={warnings} icon={AlertTriangle} color="text-amber-400" bgClass="border-amber-900/30" />
               <SevAccordion title="Info & Suggestions" findings={infos} icon={InfoIcon} color="text-sky-400" bgClass="border-sky-900/30" />
-              <SevAccordion title="Passed Checks" findings={successes} icon={CheckCircle} color="text-emerald-400" bgClass="border-emerald-900/30" />
-            </div>
+                          </div>
           ) : (
             <div className="flex items-center gap-2 text-emerald-400 text-sm">
               <CheckCircle size={16} /> No findings in this category.

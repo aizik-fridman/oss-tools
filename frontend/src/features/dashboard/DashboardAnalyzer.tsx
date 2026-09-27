@@ -126,8 +126,7 @@ export default function DashboardAnalyzerTool() {
                     <div className="text-slate-200 font-bold mb-1 uppercase tracking-wide">Dashboard Analysis</div>
                     <div className="flex flex-col gap-1 text-sm font-medium mt-3">
                       <span className="text-slate-400">{analysis.stats.checksRun} Checks</span>
-                      <span className="text-emerald-400">✓ {analysis.stats.passed} Passed</span>
-                      <span className="text-amber-400">⚠ {analysis.stats.warnings} Warnings</span>
+                                            <span className="text-amber-400">⚠ {analysis.stats.warnings} Warnings</span>
                       <span className="text-red-400">🔴 {analysis.stats.critical} Critical</span>
                       <span className="text-sky-400">ℹ {analysis.stats.info} Recommendations</span>
                     </div>

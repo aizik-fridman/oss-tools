@@ -40,3 +40,8 @@ GOOS=js GOARCH=wasm go build -o ../frontend/public/promql.wasm main.go
 
 ## Disclaimer
 This project was created with the assistance of AI for personal purposes. If you found it helpful or encountered a bug, please report it in the Issues section.
+
+
+## Privacy & Limits
+- **Privacy:** 100% of the analysis runs locally in your browser. No data, YAMLs, or queries are sent to any external server.
+- **Limits:** Due to WebAssembly memory constraints in the browser, extremely large PromQL queries or YAML files (>50MB) may crash the worker tab.

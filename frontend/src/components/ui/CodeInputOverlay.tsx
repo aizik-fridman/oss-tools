@@ -39,7 +39,7 @@ export default function CodeInputOverlay({ language, onPaste, onUpload }: CodeIn
 - name: Production Alerts
   rules:
   - alert: HighCPUUsage
-    expr: node_cpu_seconds_total > 0.8
+    expr: 100 * (1 - avg by(instance) (rate(node_cpu_seconds_total{mode="idle"}[5m]))) > 80
     for: 5m
     labels:
       severity: critical

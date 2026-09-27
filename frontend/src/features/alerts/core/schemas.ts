@@ -3,7 +3,7 @@ import { z } from 'zod';
 export const AlertRuleSchema = z.object({
   alert: z.string().optional(),
   title: z.string().optional(),
-  expr: z.string().optional(),
+  expr: z.union([z.string(), z.number()]).optional().transform(v => typeof v === 'number' ? String(v) : v),
   data: z.array(z.any()).optional(),
   for: z.string().optional(),
   labels: z.any().optional(),

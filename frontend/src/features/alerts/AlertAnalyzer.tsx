@@ -13,7 +13,7 @@ export default function AlertAnalyzerTool() {
   const [error, setError] = useState<string | null>(null);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [detectedFormat, setDetectedFormat] = useState<'prometheus' | 'grafana' | null>(null);
-  
+  const [skippedRules, setSkippedRules] = useState<number>(0);  
         
   const workerRef = useRef<Worker | null>(null);
   const resolversRef = useRef<{ [key: string]: (val: any) => void }>({});
@@ -60,8 +60,14 @@ export default function AlertAnalyzerTool() {
   const analyzeYaml = async () => {
     try {
       setError(null);
+      if (!yamlInput || yamlInput.trim() === '') {
+        throw new Error('Editor is empty. Please paste some Prometheus or Grafana Alerting YAML to analyze.');
+      }
       setIsAnalyzing(true);
       const parsedRaw = parse(yamlInput);
+      if (!parsedRaw) {
+        throw new Error('Failed to parse YAML. The content might be empty or invalid.');
+      }
       
       const validation = PrometheusAlertsSchema.safeParse(parsedRaw);
       if (!validation.success) {
@@ -70,19 +76,27 @@ export default function AlertAnalyzerTool() {
       }
       
       const parsed = validation.data;
+      let allRules: any[] = [];
       let rules: any[] = [];
       
       if ('groups' in parsed && Array.isArray(parsed.groups)) {
         parsed.groups.forEach((g: any) => {
           if (g.rules && Array.isArray(g.rules)) {
-            rules = [...rules, ...g.rules.filter((r: any) => r.alert || r.title)];
+            allRules = [...allRules, ...g.rules];
           }
         });
       } else if (Array.isArray(parsed)) {
-        rules = parsed.filter((r: any) => r.alert || r.title);
+        allRules = parsed;
       }
+      
+      rules = allRules.filter((r: any) => r.alert || r.title);
+      const skipped = allRules.length - rules.length;
+      setSkippedRules(skipped);
 
       if (rules.length === 0) {
+        if (skipped > 0) {
+          throw new Error(`Found ${skipped} recording rules, but no alerting rules. This tool only analyzes alerting rules.`);
+        }
         throw new Error('No alerts found in the provided YAML.');
       }
 
@@ -144,6 +158,7 @@ export default function AlertAnalyzerTool() {
       setAnalysis(null);
       
             setDetectedFormat(null);
+      setSkippedRules(0);
     } finally {
       setIsAnalyzing(false);
     }
@@ -211,6 +226,12 @@ export default function AlertAnalyzerTool() {
                   Found {analysis.length} alert{analysis.length !== 1 ? 's' : ''}:
                 </div>
                 
+                                {skippedRules > 0 && (
+                  <div className="bg-slate-900/50 border border-slate-700 rounded-xl p-4 flex items-center gap-3 text-slate-300 mb-6">
+                    <Info size={20} className="text-sky-400 shrink-0" />
+                    <p className="text-sm">Skipped <b>{skippedRules}</b> recording rules. This tool only analyzes alerting rules.</p>
+                  </div>
+                )}
                 {detectedFormat && (
                   <div className={`p-4 rounded-xl border mb-6 flex items-center gap-3 ${
                     detectedFormat === 'prometheus' ? 'bg-orange-950/30 border-orange-500/30 text-orange-400' : 'bg-amber-950/30 border-amber-500/30 text-amber-400'
