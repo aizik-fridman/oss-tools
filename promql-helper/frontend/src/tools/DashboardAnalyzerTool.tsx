@@ -94,9 +94,9 @@ export default function DashboardAnalyzerTool() {
         }
         
         // PromQL Efficiency
-        if (p.targets) {
+        if (p.targets && Array.isArray(p.targets)) {
            p.targets.forEach((t: any) => {
-             if (t.expr) {
+             if (t.expr && typeof t.expr === 'string') {
                const expr = t.expr;
                if ((expr.includes('rate(') || expr.includes('irate(')) && !expr.includes('$__rate_interval') && !expr.includes('$__interval')) {
                  perfIssues.push(`Panel '${p.title || 'Untitled'}': Uses rate() without $__rate_interval. This can cause graphing artifacts.`);
@@ -155,7 +155,14 @@ export default function DashboardAnalyzerTool() {
         }
 
         // Naked regex
-        if (v.query && typeof v.query === 'string' && v.query.includes('=~".*"') || v.query.includes('=~ ".*"')) {
+        let queryString = '';
+        if (typeof v.query === 'string') {
+          queryString = v.query;
+        } else if (v.query && typeof v.query.query === 'string') {
+          queryString = v.query.query;
+        }
+        
+        if (queryString && (queryString.includes('=~".*"') || queryString.includes('=~ ".*"'))) {
            sreIssues.push(`Variable '${v.name}' uses a naked regex (=~ ".*"). This causes heavy TSDB load. Prefer explicit label matchers.`);
            score -= 5;
         }
