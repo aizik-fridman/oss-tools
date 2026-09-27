@@ -1,5 +1,5 @@
 import { Link, Outlet, useLocation } from 'react-router-dom';
-import { Search, LayoutDashboard, FileWarning, Calculator, Menu, X, Info, ExternalLink, Mail } from 'lucide-react';
+import { Search, LayoutDashboard, FileWarning, Calculator, Menu, X, Info, ExternalLink, Mail, Code2 } from 'lucide-react';
 import { useState } from 'react';
 
 export default function PortalLayout() {
@@ -61,11 +61,17 @@ export default function PortalLayout() {
           })}
         </nav>
         
-        <div className="p-4 border-t border-slate-800 text-xs text-slate-500 text-center flex flex-col gap-1 shrink-0 bg-slate-900 pb-safe">
-          <span>OSS Tools Portal v1.0</span>
-          <button onClick={() => setIsAboutOpen(true)} className="text-[11px] text-slate-600 hover:text-sky-400 transition-colors font-medium">
-            About this site
-          </button>
+        <div className="p-4 border-t border-slate-800 text-xs text-slate-500 flex flex-col gap-4 shrink-0 bg-slate-900 pb-safe">
+          <a href="https://github.com/aizik-fridman/oss-tools" target="_blank" rel="noreferrer" className="flex items-center justify-center gap-2 px-3 py-2.5 bg-slate-800/50 hover:bg-slate-800 text-slate-300 hover:text-white rounded-lg transition-colors border border-slate-700/50 font-medium">
+            <Code2 size={16} />
+            <span>Open Source Project</span>
+          </a>
+          <div className="text-center flex flex-col gap-1">
+            <span>OSS Tools Portal v1.0</span>
+            <button onClick={() => setIsAboutOpen(true)} className="text-[11px] text-slate-600 hover:text-sky-400 transition-colors font-medium">
+              About this site
+            </button>
+          </div>
         </div>
       </div>
 
