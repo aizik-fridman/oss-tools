@@ -1,14 +1,9 @@
-import { useEffect, useState, useCallback } from 'react'
-import Editor from '@monaco-editor/react'
+import { useEffect, useState, useRef } from 'react'
+import Editor, { useMonaco } from '@monaco-editor/react'
 import { motion, AnimatePresence } from 'framer-motion'
-
-// Add types for the global Wasm function
-declare global {
-  interface Window {
-    Go: any
-    parsePromQL?: (query: string) => string
-  }
-}
+import { Panel, PanelGroup, PanelResizeHandle } from 'react-resizable-panels'
+import { setupPromQLLanguage } from './monaco/promql'
+import type * as Monaco from 'monaco-editor'
 
 type NodeInfo = {
   type: string
@@ -17,11 +12,18 @@ type NodeInfo = {
   children?: NodeInfo[]
 }
 
+type SyntaxError = {
+  message: string
+  start: number
+  end: number
+}
+
 type ParseResult = {
   formatted: string
   explanation: NodeInfo
   warnings: string[]
   error: string
+  syntaxErrs?: SyntaxError[]
 }
 
 const ExplanationNode = ({ node, isRoot = false }: { node: NodeInfo, isRoot?: boolean }) => {
@@ -61,13 +63,10 @@ const ExplanationNode = ({ node, isRoot = false }: { node: NodeInfo, isRoot?: bo
             exit={{ opacity: 0, height: 0, marginTop: 0 }}
             className="overflow-hidden relative pl-6"
           >
-            {/* Connection line for nested elements */}
             <div className="absolute left-[22px] top-0 bottom-6 w-px bg-slate-700" />
-            
             <div className="flex flex-col relative z-10">
               {node.children!.map((child, i) => (
                 <div key={i} className="relative">
-                  {/* Horizontal connection branch */}
                   <div className="absolute -left-6 top-8 w-6 h-px bg-slate-700" />
                   <ExplanationNode node={child} />
                 </div>
@@ -80,178 +79,238 @@ const ExplanationNode = ({ node, isRoot = false }: { node: NodeInfo, isRoot?: bo
   );
 };
 
-function App() {
+export default function App() {
+  const monaco = useMonaco()
+  const workerRef = useRef<Worker | null>(null)
   const [wasmReady, setWasmReady] = useState(false)
   const [query, setQuery] = useState('')
   const [result, setResult] = useState<ParseResult | null>(null)
-
-  // Load state from URL on mount
+  const [history, setHistory] = useState<string[]>([])
+  
+  // Setup Monaco
   useEffect(() => {
+    if (monaco) {
+      setupPromQLLanguage(monaco)
+    }
+  }, [monaco])
+
+  // Setup Web Worker
+  useEffect(() => {
+    const worker = new Worker(new URL('./promql.worker.ts', import.meta.url), { type: 'module' })
+    workerRef.current = worker
+
+    worker.onmessage = (e) => {
+      const { type, payload } = e.data
+      if (type === 'WASM_READY') {
+        setWasmReady(true)
+      } else if (type === 'PARSE_RESULT') {
+        setResult(JSON.parse(payload))
+      } else if (type === 'ERROR') {
+        setResult({ error: payload } as ParseResult)
+      }
+    }
+
+    return () => {
+      worker.terminate()
+    }
+  }, [])
+
+  // LocalStorage History
+  useEffect(() => {
+    const saved = localStorage.getItem('promql-history')
+    if (saved) {
+      try {
+        setHistory(JSON.parse(saved))
+      } catch (e) {}
+    }
+    
+    // Check URL
     const params = new URLSearchParams(window.location.search)
     const q = params.get('q')
     if (q) {
       try {
         setQuery(atob(q))
-      } catch (e) {
-        console.error('Invalid base64 query')
-      }
+      } catch (e) {}
     }
   }, [])
 
-  // Update URL when query changes
+  // Sync Query to URL & Parse
   useEffect(() => {
     if (query) {
       const url = new URL(window.location.href)
       url.searchParams.set('q', btoa(query))
       window.history.replaceState({}, '', url.toString())
+
+      if (wasmReady && workerRef.current) {
+        workerRef.current.postMessage({ type: 'PARSE', payload: query, id: Date.now() })
+      }
     } else {
       const url = new URL(window.location.href)
       url.searchParams.delete('q')
       window.history.replaceState({}, '', url.toString())
-    }
-  }, [query])
-
-  // Initialize WebAssembly
-  useEffect(() => {
-    async function loadWasm() {
-      if (window.Go) {
-        const go = new window.Go()
-        try {
-          const result = await WebAssembly.instantiateStreaming(fetch('/promql.wasm'), go.importObject)
-          go.run(result.instance)
-          setWasmReady(true)
-        } catch (err) {
-          console.error('Failed to load WASM:', err)
-        }
-      }
-    }
-    loadWasm()
-  }, [])
-
-  // Parse Query
-  useEffect(() => {
-    if (wasmReady && window.parsePromQL) {
-      if (!query.trim()) {
-        setResult(null)
-        return
-      }
-      try {
-        const resStr = window.parsePromQL(query)
-        const res: ParseResult = JSON.parse(resStr)
-        setResult(res)
-      } catch (err) {
-        console.error('Parse error:', err)
-      }
+      setResult(null)
     }
   }, [query, wasmReady])
 
-  const handleEditorChange = useCallback((value: string | undefined) => {
-    setQuery(value || '')
-  }, [])
+  // Sync Monaco Markers
+  const editorRef = useRef<Monaco.editor.IStandaloneCodeEditor | null>(null)
+  useEffect(() => {
+    if (monaco && editorRef.current) {
+      const model = editorRef.current.getModel()
+      if (model && result?.syntaxErrs) {
+        const markers = result.syntaxErrs.map(err => {
+          const startPos = model.getPositionAt(err.start)
+          const endPos = model.getPositionAt(err.end || err.start + 1)
+          return {
+            severity: monaco.MarkerSeverity.Error,
+            message: err.message,
+            startLineNumber: startPos.lineNumber,
+            startColumn: startPos.column,
+            endLineNumber: endPos.lineNumber,
+            endColumn: endPos.column,
+          }
+        })
+        monaco.editor.setModelMarkers(model, 'promql', markers)
+      } else if (model) {
+        monaco.editor.setModelMarkers(model, 'promql', [])
+      }
+    }
+  }, [monaco, result])
+
+  const handleFormat = () => {
+    if (result?.formatted && !result.error) {
+      setQuery(result.formatted)
+    }
+  }
+
+  const saveToHistory = () => {
+    if (!query || result?.error) return
+    setHistory(prev => {
+      const updated = [query, ...prev.filter(q => q !== query)].slice(0, 15)
+      localStorage.setItem('promql-history', JSON.stringify(updated))
+      return updated
+    })
+  }
 
   return (
-    <div className="min-h-screen p-8 max-w-7xl mx-auto flex flex-col gap-8">
-      <header className="flex items-center justify-between">
-        <h1 className="text-3xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-sky-400 to-emerald-400">
-          PromQL Helper
+    <div className="h-screen bg-[#0f172a] flex flex-col overflow-hidden">
+      <header className="h-16 flex items-center justify-between px-6 bg-slate-900 border-b border-slate-800 shrink-0">
+        <h1 className="text-2xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-sky-400 to-emerald-400">
+          PromQL Helper Pro
         </h1>
-        {!wasmReady && (
-          <div className="flex items-center gap-2 text-amber-400 bg-amber-400/10 px-3 py-1.5 rounded-full text-sm font-medium border border-amber-400/20">
-            <span className="relative flex h-2 w-2">
-              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-amber-400 opacity-75"></span>
-              <span className="relative inline-flex rounded-full h-2 w-2 bg-amber-500"></span>
-            </span>
-            Loading WASM Engine...
-          </div>
-        )}
+        <div className="flex items-center gap-4">
+          {!wasmReady && <span className="text-amber-400 text-sm animate-pulse">WASM Loading...</span>}
+          <button onClick={handleFormat} className="px-4 py-1.5 bg-slate-800 hover:bg-slate-700 text-sky-400 text-sm font-medium rounded-lg transition-colors border border-slate-700">
+            Format
+          </button>
+          <button onClick={saveToHistory} className="px-4 py-1.5 bg-sky-900/50 hover:bg-sky-800/50 text-sky-300 text-sm font-medium rounded-lg transition-colors border border-sky-800/50">
+            Save Query
+          </button>
+        </div>
       </header>
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 items-start">
-        <div className="flex flex-col gap-4 sticky top-8">
-          <div className="flex items-center justify-between">
-            <h2 className="text-xl font-semibold text-slate-200">Query Input</h2>
-          </div>
-          <div className="h-[400px] rounded-xl overflow-hidden border border-slate-700 shadow-2xl shadow-black/50">
-            <Editor
-              height="100%"
-              defaultLanguage="promql"
-              theme="vs-dark"
-              value={query}
-              onChange={handleEditorChange}
-              options={{
-                minimap: { enabled: false },
-                fontSize: 14,
-                fontFamily: 'ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace',
-                padding: { top: 16, bottom: 16 },
-                lineHeight: 24,
-                roundedSelection: false,
-                scrollBeyondLastLine: false,
-              }}
-            />
-          </div>
-
-          {result?.formatted && !result?.error && (
-            <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="bg-slate-900/80 border border-slate-700 p-4 rounded-xl shadow-lg mt-4">
-              <div className="flex items-center justify-between mb-3">
-                <h3 className="font-bold text-emerald-400">Formatted Query</h3>
-                <button 
-                  onClick={() => navigator.clipboard.writeText(result.formatted)}
-                  className="text-xs bg-slate-800 hover:bg-slate-700 text-slate-300 px-2 py-1 rounded transition-colors"
-                >
-                  Copy
-                </button>
-              </div>
-              <pre className="font-mono text-sm whitespace-pre-wrap text-slate-300 leading-relaxed overflow-x-auto">{result.formatted}</pre>
-            </motion.div>
-          )}
-        </div>
-
-        <div className="flex flex-col gap-4">
-          <h2 className="text-xl font-semibold text-slate-200">Analysis</h2>
+      <div className="flex-1 overflow-hidden">
+        <PanelGroup direction="horizontal">
           
-          {result?.error ? (
-            <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="bg-red-950/40 border border-red-500/50 text-red-200 p-5 rounded-xl shadow-lg">
-              <h3 className="font-bold mb-3 flex items-center gap-2 text-red-400">
-                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="8" x2="12" y2="12"></line><line x1="12" y1="16" x2="12.01" y2="16"></line></svg>
-                Syntax Error
-              </h3>
-              <pre className="whitespace-pre-wrap font-mono text-sm bg-red-950/50 p-3 rounded-lg border border-red-900/50">{result.error}</pre>
-            </motion.div>
-          ) : result ? (
-            <div className="flex flex-col gap-6">
-              {result.warnings?.length > 0 && (
-                <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="bg-amber-950/40 border border-amber-500/50 text-amber-200 p-5 rounded-xl shadow-lg">
-                  <h3 className="font-bold mb-3 flex items-center gap-2 text-amber-400">
-                    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"></path><line x1="12" y1="9" x2="12" y2="13"></line><line x1="12" y1="17" x2="12.01" y2="17"></line></svg>
-                    Linter Warnings
-                  </h3>
-                  <ul className="list-disc pl-5 space-y-2 text-sm">
-                    {result.warnings.map((w, i) => <li key={i}>{w}</li>)}
-                  </ul>
-                </motion.div>
-              )}
-
-              {result.explanation && (
-                <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="bg-slate-900/40 border border-slate-700/50 p-5 rounded-xl shadow-lg">
-                  <h3 className="font-bold mb-4 flex items-center gap-2 text-sky-400">
-                    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"></polygon></svg>
-                    AST Explanation Tree
-                  </h3>
-                  <div className="text-sm">
-                    <ExplanationNode node={result.explanation} isRoot={true} />
-                  </div>
-                </motion.div>
-              )}
+          {/* Editor Panel */}
+          <Panel defaultSize={50} minSize={30}>
+            <div className="h-full flex flex-col">
+              <div className="h-10 bg-slate-900/50 border-b border-slate-800 flex items-center px-4 text-xs text-slate-400 font-medium tracking-wider uppercase">
+                Editor
+              </div>
+              <div className="flex-1">
+                <Editor
+                  height="100%"
+                  language="promql"
+                  theme="promql-dark"
+                  value={query}
+                  onChange={q => setQuery(q || '')}
+                  onMount={(editor) => { editorRef.current = editor }}
+                  options={{
+                    minimap: { enabled: false },
+                    fontSize: 14,
+                    fontFamily: 'ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace',
+                    padding: { top: 16 },
+                    lineHeight: 24,
+                  }}
+                />
+              </div>
             </div>
-          ) : (
-             <div className="text-slate-500 italic h-[200px] flex items-center justify-center border border-dashed border-slate-700 rounded-xl bg-slate-900/20">
-               Start typing a query to see the magic...
-             </div>
-          )}
-        </div>
+          </Panel>
+
+          <PanelResizeHandle className="w-2 bg-slate-900 hover:bg-sky-500/50 transition-colors cursor-col-resize flex flex-col items-center justify-center">
+            <div className="h-8 w-1 bg-slate-700 rounded-full" />
+          </PanelResizeHandle>
+
+          {/* Analysis Panel */}
+          <Panel defaultSize={50} minSize={30}>
+            <div className="h-full flex flex-col bg-slate-900/30">
+              <div className="h-10 bg-slate-900/50 border-b border-slate-800 flex items-center px-4 text-xs text-slate-400 font-medium tracking-wider uppercase">
+                Analysis & AST
+              </div>
+              
+              <div className="flex-1 overflow-y-auto p-6">
+                {result?.error && !result?.syntaxErrs ? (
+                  <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="bg-red-950/40 border border-red-500/50 text-red-200 p-5 rounded-xl shadow-lg">
+                    <h3 className="font-bold mb-3">Syntax Error</h3>
+                    <pre className="whitespace-pre-wrap font-mono text-sm">{result.error}</pre>
+                  </motion.div>
+                ) : result ? (
+                  <div className="flex flex-col gap-6">
+                    {result.syntaxErrs && result.syntaxErrs.length > 0 && (
+                      <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="bg-red-950/40 border border-red-500/50 text-red-200 p-5 rounded-xl shadow-lg">
+                        <h3 className="font-bold mb-3 flex items-center gap-2 text-red-400">
+                          Syntax Error(s)
+                        </h3>
+                        <ul className="list-disc pl-5 space-y-2 text-sm">
+                          {result.syntaxErrs.map((e, i) => <li key={i}>{e.message}</li>)}
+                        </ul>
+                      </motion.div>
+                    )}
+
+                    {result.warnings?.length > 0 && (
+                      <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="bg-amber-950/40 border border-amber-500/50 text-amber-200 p-5 rounded-xl shadow-lg">
+                        <h3 className="font-bold mb-3 flex items-center gap-2 text-amber-400">
+                          Linter Warnings
+                        </h3>
+                        <ul className="list-disc pl-5 space-y-2 text-sm">
+                          {result.warnings.map((w, i) => <li key={i}>{w}</li>)}
+                        </ul>
+                      </motion.div>
+                    )}
+
+                    {result.explanation && (
+                      <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}>
+                        <ExplanationNode node={result.explanation} isRoot={true} />
+                      </motion.div>
+                    )}
+                  </div>
+                ) : (
+                  <div className="h-full flex flex-col items-center justify-center text-slate-500">
+                    <div className="w-16 h-16 border-2 border-dashed border-slate-700 rounded-full flex items-center justify-center mb-4">
+                      <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
+                    </div>
+                    <p>Enter a query to view its AST and analysis</p>
+                  </div>
+                )}
+              </div>
+            </div>
+          </Panel>
+
+        </PanelGroup>
       </div>
+
+      {/* History Bar */}
+      {history.length > 0 && (
+        <div className="h-12 bg-slate-900 border-t border-slate-800 flex items-center px-4 overflow-x-auto gap-2 shrink-0">
+          <span className="text-xs text-slate-500 font-medium uppercase mr-2">History:</span>
+          {history.map((h, i) => (
+            <button key={i} onClick={() => setQuery(h)} className="px-3 py-1 bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs rounded whitespace-nowrap truncate max-w-[200px]">
+              {h}
+            </button>
+          ))}
+        </div>
+      )}
     </div>
   )
 }
-
-export default App

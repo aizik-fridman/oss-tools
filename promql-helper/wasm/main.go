@@ -26,7 +26,20 @@ func parsePromQL(this js.Value, args []js.Value) interface{} {
 	p := parser.NewParser(parser.Options{})
 	expr, err := p.ParseExpr(query)
 	if err != nil {
-		return errorResponse(err.Error())
+		var parseErrs parser.ParseErrors
+		var syntaxErrs []map[string]interface{}
+		// Check if it's a ParseErrors type (standard from prometheus parser)
+		if e, ok := err.(parser.ParseErrors); ok {
+			parseErrs = e
+		}
+		for _, parseErr := range parseErrs {
+			syntaxErrs = append(syntaxErrs, map[string]interface{}{
+				"message": parseErr.Err.Error(),
+				"start":   int(parseErr.PositionRange.Start),
+				"end":     int(parseErr.PositionRange.End),
+			})
+		}
+		return errorResponseWithSyntaxErrs(err.Error(), syntaxErrs)
 	}
 
 	// Format the query (the String() method of expr nicely formats it)
@@ -55,8 +68,13 @@ func parsePromQL(this js.Value, args []js.Value) interface{} {
 }
 
 func errorResponse(errMsg string) interface{} {
+	return errorResponseWithSyntaxErrs(errMsg, nil)
+}
+
+func errorResponseWithSyntaxErrs(errMsg string, syntaxErrs []map[string]interface{}) interface{} {
 	res := map[string]interface{}{
-		"error": errMsg,
+		"error":      errMsg,
+		"syntaxErrs": syntaxErrs,
 	}
 	b, _ := json.Marshal(res)
 	return string(b)
