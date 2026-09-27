@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { performAnalysis } from './DashboardAnalyzerTool';
+import { performAnalysis } from './analyzer';
 
 describe('DashboardAnalyzerTool Static Analysis', () => {
   it('1. Dashboard ללא panels', () => {

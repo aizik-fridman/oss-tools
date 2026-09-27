@@ -1,10 +1,10 @@
 import { Routes, Route } from 'react-router-dom';
-import PortalLayout from './components/PortalLayout';
-import ExplainerTool from './tools/ExplainerTool';
-import AlertAnalyzerTool from './tools/AlertAnalyzerTool';
-import DashboardAnalyzerTool from './tools/DashboardAnalyzerTool';
+import PortalLayout from './components/layout/PortalLayout';
+import ExplainerTool from './features/promql/Explainer';
+import AlertAnalyzerTool from './features/alerts/AlertAnalyzer';
+import DashboardAnalyzerTool from './features/dashboard/DashboardAnalyzer';
 
-import HomePage from './tools/HomePage';
+import HomePage from './features/home/HomePage';
 
 export default function App() {
   return (

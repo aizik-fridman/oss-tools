@@ -1,32 +1,12 @@
 import { useState, useEffect, useRef } from 'react';
 import Editor from '@monaco-editor/react';
 import { parse, stringify } from 'yaml';
-import { z } from 'zod';
 import { AlertTriangle, CheckCircle, Info, Loader2 } from 'lucide-react';
+import { PrometheusAlertsSchema } from './core/schemas';
+import { convertToUnified as convertAlerts } from './core/converter';
 
-const AlertRuleSchema = z.object({
-  alert: z.string().optional(),
-  title: z.string().optional(),
-  expr: z.string().optional(),
-  data: z.array(z.any()).optional(),
-  for: z.string().optional(),
-  labels: z.any().optional(),
-  annotations: z.any().optional()
-}).passthrough();
 
-const AlertGroupSchema = z.object({
-  name: z.string(),
-  rules: z.array(AlertRuleSchema)
-}).passthrough();
-
-const PrometheusAlertsSchema = z.union([
-  z.object({
-    groups: z.array(AlertGroupSchema)
-  }).passthrough(),
-  z.array(AlertRuleSchema)
-]);
-
-import CodeInputOverlay from '../components/CodeInputOverlay';
+import CodeInputOverlay from '../../components/ui/CodeInputOverlay';
 
 export default function AlertAnalyzerTool() {
   const [yamlInput, setYamlInput] = useState('');
@@ -42,7 +22,7 @@ export default function AlertAnalyzerTool() {
   const resolversRef = useRef<{ [key: string]: (val: any) => void }>({});
 
   useEffect(() => {
-    workerRef.current = new Worker(new URL('../promql.worker.ts', import.meta.url));
+    workerRef.current = new Worker(new URL('../../promql.worker.ts', import.meta.url));
     workerRef.current.onmessage = (e) => {
       if (e.data.type === 'PARSE_RESULT' || e.data.type === 'ERROR') {
         const resolve = resolversRef.current[e.data.id];
@@ -177,51 +157,8 @@ export default function AlertAnalyzerTool() {
   const convertToUnified = () => {
     if (!legacyRules) return;
     try {
-      const { original, rules } = legacyRules;
-      
-      let groupName = 'Converted_Alerts';
-      let folder = 'Imported Alerts';
-      
-      if (original.groups && original.groups[0]) {
-        groupName = original.groups[0].name || groupName;
-      }
-      
-      const newRules = rules.map((r: any) => ({
-        title: r.alert || 'Unnamed Alert',
-        condition: 'A',
-        data: [
-          {
-            refId: 'A',
-            relativeTimeRange: { from: 600, to: 0 },
-            datasourceUid: 'prometheus-default',
-            model: {
-              expr: r.expr,
-              refId: 'A',
-            }
-          }
-        ],
-        noDataState: 'NoData',
-        execErrState: 'Error',
-        for: r.for || '5m',
-        annotations: r.annotations || {},
-        labels: r.labels || {},
-        isPaused: false
-      }));
-
-      const unifiedAlertingFormat = {
-        apiVersion: 1,
-        groups: [
-          {
-            orgId: 1,
-            name: groupName,
-            folder: folder,
-            interval: '1m',
-            rules: newRules
-          }
-        ]
-      };
-      
-      setConvertedYaml(stringify(unifiedAlertingFormat, { indent: 2 }));
+      const res = convertAlerts(legacyRules);
+      setConvertedYaml(stringify(res, { indent: 2 }));
     } catch (e) {
       console.error(e);
     }
