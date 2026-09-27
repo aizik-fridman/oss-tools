@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import Editor from '@monaco-editor/react';
 import { parse, stringify } from 'yaml';
-import { AlertTriangle, CheckCircle, Info, Loader2 } from 'lucide-react';
+import { AlertTriangle, CheckCircle, Info, Loader2, Flame, LayoutDashboard } from 'lucide-react';
 import { PrometheusAlertsSchema } from './core/schemas';
 import { convertToUnified as convertAlerts } from './core/converter';
 
@@ -13,8 +13,9 @@ export default function AlertAnalyzerTool() {
   const [analysis, setAnalysis] = useState<any[] | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
+  const [detectedFormat, setDetectedFormat] = useState<'prometheus' | 'grafana' | null>(null);
   
-  const [legacyRules, setLegacyRules] = useState<any>(null);
+  const [prometheusRules, setPrometheusRules] = useState<any>(null);
   const [convertedYaml, setConvertedYaml] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
   
@@ -90,11 +91,11 @@ export default function AlertAnalyzerTool() {
 
       const analyzedPromises = rules.map(async (rule) => {
         const issues = [];
-        const isLegacy = !!rule.alert;
+        const isPrometheus = !!rule.alert;
         const name = rule.alert || rule.title;
         
         let expr = rule.expr;
-        if (!isLegacy && rule.data && Array.isArray(rule.data)) {
+        if (!isPrometheus && rule.data && Array.isArray(rule.data)) {
            const queryNode = rule.data.find((d: any) => d.model && d.model.expr);
            if (queryNode) expr = queryNode.model.expr;
         }
@@ -107,9 +108,6 @@ export default function AlertAnalyzerTool() {
         }
         if (!rule.labels?.severity) {
           issues.push('Missing "severity" label (e.g., critical, warning, info).');
-        }
-        if (isLegacy) {
-          issues.push('💡 Tip: This rule uses Legacy format. Use the YAML Converter tool to upgrade it to Grafana Unified Alerting.');
         }
 
         if (expr) {
@@ -136,28 +134,30 @@ export default function AlertAnalyzerTool() {
       setAnalysis(analyzed);
       
       // Determine if we need to offer conversion
-      const hasLegacy = rules.some((r: any) => !!r.alert);
-      if (hasLegacy) {
-         setLegacyRules({ original: parsedRaw, rules });
+      const hasPrometheus = rules.some((r: any) => !!r.alert);
+      setDetectedFormat(hasPrometheus ? 'prometheus' : 'grafana');
+      if (hasPrometheus) {
+         setPrometheusRules({ original: parsedRaw, rules });
       } else {
-         setLegacyRules(null);
+         setPrometheusRules(null);
          setConvertedYaml(null);
       }
 
     } catch (err: any) {
       setError(err.message || 'Failed to parse YAML');
       setAnalysis(null);
-      setLegacyRules(null);
+      setPrometheusRules(null);
       setConvertedYaml(null);
+      setDetectedFormat(null);
     } finally {
       setIsAnalyzing(false);
     }
   };
 
   const convertToUnified = () => {
-    if (!legacyRules) return;
+    if (!prometheusRules) return;
     try {
-      const res = convertAlerts(legacyRules);
+      const res = convertAlerts(prometheusRules);
       setConvertedYaml(stringify(res, { indent: 2 }));
     } catch (e) {
       console.error(e);
@@ -169,7 +169,7 @@ export default function AlertAnalyzerTool() {
       <div className="max-w-5xl mx-auto space-y-8">
         <header>
           <h2 className="text-2xl font-bold text-amber-400">Alert Analyzer</h2>
-          <p className="text-slate-400 mt-2">Paste Prometheus alert rules YAML. We'll explain them and run PromQL structural linters via WebAssembly.</p>
+          <p className="text-slate-400 mt-2">Paste Prometheus or Grafana Unified Alerting YAML rules. We'll explain them and run PromQL structural linters via WebAssembly.</p>
         </header>
 
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
@@ -226,6 +226,19 @@ export default function AlertAnalyzerTool() {
                   Found {analysis.length} alert{analysis.length !== 1 ? 's' : ''}:
                 </div>
                 
+                {detectedFormat && (
+                  <div className={`p-4 rounded-xl border mb-6 flex items-center gap-3 ${
+                    detectedFormat === 'prometheus' ? 'bg-orange-950/30 border-orange-500/30 text-orange-400' : 'bg-amber-950/30 border-amber-500/30 text-amber-400'
+                  }`}>
+                     {detectedFormat === 'prometheus' ? <Flame size={24} /> : <LayoutDashboard size={24} />}
+                     <div>
+                       <h3 className="font-bold text-lg">{detectedFormat === 'prometheus' ? 'Prometheus Rules Detected' : 'Grafana Unified Alerting Detected'}</h3>
+                       <p className="text-sm opacity-80">
+                         {detectedFormat === 'prometheus' ? 'Analyzed native Prometheus alerting rules syntax.' : 'Analyzed Grafana alerting provisioning syntax.'}
+                       </p>
+                     </div>
+                  </div>
+                )}
                 {analysis.map((a, i) => (
                   <div key={i} className="bg-slate-900 border border-slate-800 rounded-xl p-5 shadow-lg animate-in slide-in-from-right-4">
                     <div className="flex items-center justify-between mb-3">
@@ -259,15 +272,15 @@ export default function AlertAnalyzerTool() {
                   </div>
                 ))}
                 
-                {legacyRules && !convertedYaml && (
+                {prometheusRules && !convertedYaml && (
                   <div className="bg-orange-950/30 border border-orange-500/50 rounded-xl p-6 text-center animate-in fade-in mt-8 shadow-xl">
-                    <h3 className="text-orange-400 font-bold mb-2 text-lg">Legacy Format Detected</h3>
-                    <p className="text-orange-200/80 text-sm mb-4">We found legacy Prometheus rules. Would you like to automatically convert them to Grafana 9+ Unified Alerting format?</p>
+                    <h3 className="text-orange-400 font-bold mb-2 text-lg">Prometheus Format Detected</h3>
+                    <p className="text-orange-200/80 text-sm mb-4">These alerts are written in standard Prometheus format. You can convert them to Grafana Unified Alerting format if you prefer provisioning them to Grafana instead of Prometheus directly.</p>
                     <button 
                       onClick={convertToUnified}
                       className="px-6 py-2 bg-orange-600 hover:bg-orange-500 text-white font-bold rounded-lg transition-colors"
                     >
-                      Convert to Unified Alerting
+                      Convert to Grafana Format
                     </button>
                   </div>
                 )}
