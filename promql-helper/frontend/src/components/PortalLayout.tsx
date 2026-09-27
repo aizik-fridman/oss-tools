@@ -1,5 +1,5 @@
 import { Link, Outlet, useLocation } from 'react-router-dom';
-import { Activity, Search, AlertCircle, Clock } from 'lucide-react';
+import { Activity, Search, LayoutDashboard, Clock, FileWarning, RefreshCw } from 'lucide-react';
 
 export default function PortalLayout() {
   const location = useLocation();
@@ -7,8 +7,10 @@ export default function PortalLayout() {
   const navItems = [
     { path: '/explainer', name: 'Parser & Explainer', icon: Search },
     { path: '/selector-builder', name: 'Selector Builder', icon: Activity },
-    { path: '/alert-generator', name: 'Alert Generator', icon: AlertCircle },
+    { path: '/alert-analyzer', name: 'Alert Analyzer', icon: FileWarning },
+    { path: '/dashboard-analyzer', name: 'Dashboard Analyzer', icon: LayoutDashboard },
     { path: '/step-calculator', name: 'Step Calculator', icon: Clock },
+    { path: '/yaml-converter', name: 'YAML Converter', icon: RefreshCw },
   ];
 
   return (

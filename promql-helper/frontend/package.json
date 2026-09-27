@@ -20,7 +20,8 @@
     "react-dom": "^19.2.8",
     "react-resizable-panels": "^2.1.7",
     "react-router-dom": "^7.18.4",
-    "tailwindcss": "^4.3.3"
+    "tailwindcss": "^4.3.3",
+    "yaml": "^2.9.1"
   },
   "devDependencies": {
     "@types/node": "^24.13.3",
