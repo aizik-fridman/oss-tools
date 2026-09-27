@@ -1,6 +1,5 @@
 import { useState, useMemo } from 'react';
-import { Calculator, Clock, Activity, Target, AlertTriangle, ShieldCheck } from 'lucide-react';
-import { motion } from 'framer-motion';
+import { Calculator } from 'lucide-react';
 
 const TIME_WINDOWS = [
   { label: '24 Hours', hours: 24 },
@@ -24,24 +23,29 @@ export default function SreCalculator() {
   // Error Budget (Time)
   const downtimeBudgetObj = useMemo(() => {
     if (slo <= 0 || slo > 100) return null;
-    const totalSeconds = windowHours * 60 * 60;
-    const allowedDowntimeSeconds = totalSeconds * ((100 - slo) / 100);
     
-    let rem = allowedDowntimeSeconds;
-    const d = Math.floor(rem / (24 * 3600));
-    rem %= (24 * 3600);
+    // Exact math for allowed downtime seconds
+    const totalSeconds = windowHours * 60 * 60;
+    const errorRate = 1 - (slo / 100);
+    // Round to nearest integer second to avoid 59.999 floating point issues
+    let rem = Math.round(totalSeconds * errorRate);
+    
+    const d = Math.floor(rem / 86400);
+    rem %= 86400;
     const h = Math.floor(rem / 3600);
     rem %= 3600;
     const m = Math.floor(rem / 60);
     const s = rem % 60;
 
-    return { d, h, m, s: s.toFixed(1), totalSec: allowedDowntimeSeconds };
+    return { d, h, m, s, totalSec: Math.round(totalSeconds * errorRate) };
   }, [slo, windowHours]);
 
   // Error Budget (Requests)
   const reqBudgetObj = useMemo(() => {
     if (slo <= 0 || slo > 100 || totalReqs <= 0) return null;
-    const allowedFailures = Math.floor(totalReqs * ((100 - slo) / 100));
+    
+    const errorRate = 1 - (slo / 100);
+    const allowedFailures = Math.floor(totalReqs * errorRate);
     const currentSli = ((totalReqs - failedReqs) / totalReqs) * 100;
     const remainingBudget = allowedFailures - failedReqs;
     
@@ -54,47 +58,50 @@ export default function SreCalculator() {
   }, [slo, totalReqs, failedReqs]);
 
   return (
-    <div className="h-full overflow-y-auto bg-[#0f172a] text-slate-200 p-8">
-      <div className="max-w-5xl mx-auto space-y-8">
-        <header className="mb-8 border-b border-slate-800 pb-6">
-          <h1 className="text-2xl font-bold text-slate-100 flex items-center gap-3">
-            <Calculator className="text-violet-400" size={28} />
-            SRE Calculators
-          </h1>
-          <p className="text-slate-400 text-sm mt-2">
-            Calculate Error Budgets, Allowed Downtime, and SLIs based on Site Reliability Engineering principles.
-          </p>
+    <div className="h-full overflow-y-auto bg-[#0f172a] text-slate-200 p-8 font-sans">
+      <div className="max-w-4xl mx-auto space-y-12">
+        
+        {/* Header */}
+        <header className="border-b border-slate-800 pb-6 flex items-end justify-between">
+          <div>
+            <h1 className="text-3xl font-normal text-slate-100 flex items-center gap-3 tracking-tight">
+              <Calculator className="text-slate-500" size={28} strokeWidth={1.5} />
+              SRE Calculator
+            </h1>
+            <p className="text-slate-400 text-sm mt-2 font-light">
+              Service Level Objectives and Error Budget computing.
+            </p>
+          </div>
         </header>
 
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          {/* Inputs Section */}
-          <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="bg-slate-900 border border-slate-800 rounded-xl p-6 space-y-8">
-            <div>
-              <div className="flex items-center gap-2 text-sm font-bold text-slate-300 uppercase tracking-wider mb-4">
-                <Target className="text-sky-400" size={16} /> Core SLO Target
-              </div>
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-12">
+          
+          {/* Inputs Column */}
+          <div className="space-y-10">
+            <section>
+              <h2 className="text-sm font-semibold text-slate-300 uppercase tracking-widest mb-6">Configuration</h2>
               
-              <div className="space-y-4 bg-slate-950/50 p-4 rounded-lg border border-slate-800/50">
+              <div className="space-y-6">
                 <div>
-                  <label className="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-2">Target SLO (%)</label>
+                  <label className="block text-sm font-medium text-slate-400 mb-2">Target SLO (%)</label>
                   <input 
                     type="number" 
                     step="0.01"
                     value={sloStr}
                     onChange={(e) => setSloStr(e.target.value)}
-                    className="w-full bg-slate-950 border border-slate-800 rounded px-3 py-2 text-slate-200 focus:outline-none focus:border-sky-500 focus:ring-1 focus:ring-sky-500 transition-all font-mono text-sm"
+                    className="w-full bg-transparent border-b border-slate-700 py-2 text-2xl text-slate-100 focus:outline-none focus:border-slate-400 transition-colors placeholder-slate-800"
                     placeholder="99.9"
                   />
                 </div>
 
                 <div>
-                  <label className="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-2">Time Window</label>
-                  <div className="grid grid-cols-3 gap-2">
+                  <label className="block text-sm font-medium text-slate-400 mb-3">Time Window</label>
+                  <div className="flex flex-wrap gap-2">
                     {TIME_WINDOWS.map(w => (
                       <button
                         key={w.label}
                         onClick={() => setWindowHours(w.hours)}
-                        className={`px-3 py-1.5 rounded text-xs font-medium transition-colors ${windowHours === w.hours ? 'bg-sky-500/10 text-sky-400 border border-sky-500/30' : 'bg-slate-900 border border-slate-800 text-slate-400 hover:bg-slate-800'}`}
+                        className={`px-4 py-1.5 rounded-full text-sm transition-colors border ${windowHours === w.hours ? 'bg-slate-200 text-slate-900 border-slate-200 font-medium' : 'bg-transparent text-slate-400 border-slate-700 hover:border-slate-500'}`}
                       >
                         {w.label}
                       </button>
@@ -102,106 +109,92 @@ export default function SreCalculator() {
                   </div>
                 </div>
               </div>
-            </div>
+            </section>
 
-            <div>
-              <div className="flex items-center gap-2 text-sm font-bold text-slate-300 uppercase tracking-wider mb-4">
-                <Activity className="text-violet-400" size={16} /> SLI / Volume Metrics
-              </div>
-
-              <div className="grid grid-cols-2 gap-4 bg-slate-950/50 p-4 rounded-lg border border-slate-800/50">
+            <section>
+              <h2 className="text-sm font-semibold text-slate-300 uppercase tracking-widest mb-6 pt-4 border-t border-slate-800">Volume Metrics</h2>
+              
+              <div className="grid grid-cols-2 gap-8">
                 <div>
-                  <label className="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-2">Total Requests</label>
+                  <label className="block text-sm font-medium text-slate-400 mb-2">Total Requests</label>
                   <input 
                     type="number" 
                     value={totalReqsStr}
                     onChange={(e) => setTotalReqsStr(e.target.value)}
-                    className="w-full bg-slate-950 border border-slate-800 rounded px-3 py-2 text-slate-200 focus:outline-none focus:border-violet-500 focus:ring-1 focus:ring-violet-500 transition-all font-mono text-sm"
+                    className="w-full bg-transparent border-b border-slate-700 py-2 text-xl text-slate-100 focus:outline-none focus:border-slate-400 transition-colors"
                   />
                 </div>
                 <div>
-                  <label className="block text-xs font-semibold text-slate-500 uppercase tracking-wide mb-2">Failed Requests</label>
+                  <label className="block text-sm font-medium text-slate-400 mb-2">Failed</label>
                   <input 
                     type="number" 
                     value={failedReqsStr}
                     onChange={(e) => setFailedReqsStr(e.target.value)}
-                    className="w-full bg-slate-950 border border-slate-800 rounded px-3 py-2 text-slate-200 focus:outline-none focus:border-violet-500 focus:ring-1 focus:ring-violet-500 transition-all font-mono text-sm"
+                    className="w-full bg-transparent border-b border-slate-700 py-2 text-xl text-slate-100 focus:outline-none focus:border-slate-400 transition-colors"
                   />
                 </div>
               </div>
-            </div>
-          </motion.div>
+            </section>
+          </div>
 
-          {/* Results Section */}
-          <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }} className="space-y-6">
-            
-            {/* Time Budget */}
-            <div className="bg-slate-900 border border-slate-800 rounded-xl p-6">
-              <div className="flex items-center gap-2 text-sm font-bold text-slate-300 uppercase tracking-wider mb-6">
-                <Clock className="text-sky-400" size={16} /> Allowed Downtime (Error Budget)
-              </div>
+          {/* Results Column */}
+          <div className="space-y-10 lg:pl-10 lg:border-l border-slate-800">
+            <section>
+              <h2 className="text-sm font-semibold text-slate-300 uppercase tracking-widest mb-6">Error Budget (Time)</h2>
               
-              <div className="flex gap-4">
-                <div className="flex-1 flex flex-col justify-center items-center py-4 bg-slate-950 border border-slate-800/80 rounded-lg">
-                  <div className="text-2xl font-bold text-slate-200 font-mono mb-1">{downtimeBudgetObj?.d || 0}</div>
-                  <div className="text-[10px] text-slate-500 font-semibold uppercase tracking-widest">Days</div>
+              <div className="flex items-baseline gap-6">
+                <div className="flex flex-col">
+                  <span className="text-4xl text-slate-100 font-light">{downtimeBudgetObj?.d || 0}</span>
+                  <span className="text-xs text-slate-500 uppercase tracking-wider mt-1">Days</span>
                 </div>
-                <div className="flex-1 flex flex-col justify-center items-center py-4 bg-slate-950 border border-slate-800/80 rounded-lg">
-                  <div className="text-2xl font-bold text-slate-200 font-mono mb-1">{downtimeBudgetObj?.h || 0}</div>
-                  <div className="text-[10px] text-slate-500 font-semibold uppercase tracking-widest">Hours</div>
+                <div className="flex flex-col">
+                  <span className="text-4xl text-slate-100 font-light">{downtimeBudgetObj?.h || 0}</span>
+                  <span className="text-xs text-slate-500 uppercase tracking-wider mt-1">Hours</span>
                 </div>
-                <div className="flex-1 flex flex-col justify-center items-center py-4 bg-slate-950 border border-slate-800/80 rounded-lg">
-                  <div className="text-2xl font-bold text-slate-200 font-mono mb-1">{downtimeBudgetObj?.m || 0}</div>
-                  <div className="text-[10px] text-slate-500 font-semibold uppercase tracking-widest">Mins</div>
+                <div className="flex flex-col">
+                  <span className="text-4xl text-slate-100 font-light">{downtimeBudgetObj?.m || 0}</span>
+                  <span className="text-xs text-slate-500 uppercase tracking-wider mt-1">Mins</span>
                 </div>
-                <div className="flex-1 flex flex-col justify-center items-center py-4 bg-slate-950 border border-slate-800/80 rounded-lg">
-                  <div className="text-2xl font-bold text-slate-200 font-mono mb-1">{downtimeBudgetObj?.s || 0}</div>
-                  <div className="text-[10px] text-slate-500 font-semibold uppercase tracking-widest">Secs</div>
+                <div className="flex flex-col">
+                  <span className="text-4xl text-slate-100 font-light">{downtimeBudgetObj?.s || 0}</span>
+                  <span className="text-xs text-slate-500 uppercase tracking-wider mt-1">Secs</span>
                 </div>
               </div>
-            </div>
+            </section>
 
-            {/* Request Budget */}
-            <div className="bg-slate-900 border border-slate-800 rounded-xl p-6">
-              <div className="flex items-center gap-2 text-sm font-bold text-slate-300 uppercase tracking-wider mb-6">
-                <Activity className="text-violet-400" size={16} /> SLI & Event Budget Status
-              </div>
+            <section>
+              <h2 className="text-sm font-semibold text-slate-300 uppercase tracking-widest mb-6 pt-4 border-t border-slate-800">Error Budget (Events)</h2>
 
               {reqBudgetObj && (
-                <div className="space-y-6">
-                  <div className="flex justify-between items-center bg-slate-950 border border-slate-800/80 rounded-lg p-5">
+                <div className="space-y-8">
+                  <div className="flex justify-between items-baseline">
                     <div>
-                      <div className="text-[11px] font-semibold uppercase tracking-wider text-slate-500 mb-1">Current SLI</div>
-                      <div className={`text-3xl font-bold font-mono flex items-center gap-2 ${reqBudgetObj.currentSli >= slo ? 'text-emerald-400' : 'text-red-400'}`}>
-                        {reqBudgetObj.currentSli.toFixed(3)}%
-                        {reqBudgetObj.currentSli >= slo ? <ShieldCheck size={22} /> : <AlertTriangle size={22} />}
+                      <div className="text-xs text-slate-500 uppercase tracking-wider mb-1">Current SLI</div>
+                      <div className="text-4xl font-light text-slate-100">
+                        {reqBudgetObj.currentSli.toFixed(3)}<span className="text-2xl text-slate-500">%</span>
                       </div>
-                    </div>
-                    <div className="text-right">
-                      <div className="text-[11px] font-semibold uppercase tracking-wider text-slate-500 mb-1">Target</div>
-                      <div className="text-lg font-medium font-mono text-slate-300">{slo.toFixed(3)}%</div>
                     </div>
                   </div>
 
-                  <div className="grid grid-cols-2 gap-4">
-                     <div className="bg-slate-950 rounded-lg p-4 border border-slate-800/80">
-                      <div className="text-[11px] font-semibold uppercase tracking-wider text-slate-500 mb-1">Allowed Failures</div>
-                      <div className="text-xl font-bold text-slate-200 font-mono">{reqBudgetObj.allowedFailures.toLocaleString()}</div>
+                  <div className="grid grid-cols-2 gap-8">
+                     <div>
+                      <div className="text-xs text-slate-500 uppercase tracking-wider mb-1">Allowed Failures</div>
+                      <div className="text-2xl font-light text-slate-300">{reqBudgetObj.allowedFailures.toLocaleString()}</div>
                     </div>
-                    <div className={`rounded-lg p-4 border ${reqBudgetObj.isExhausted ? 'bg-red-950/20 border-red-500/30' : 'bg-slate-950 border-slate-800/80'}`}>
-                      <div className={`text-[11px] font-semibold uppercase tracking-wider mb-1 ${reqBudgetObj.isExhausted ? 'text-red-400' : 'text-slate-500'}`}>
+                    <div>
+                      <div className={`text-xs uppercase tracking-wider mb-1 ${reqBudgetObj.isExhausted ? 'text-red-400/80' : 'text-slate-500'}`}>
                         {reqBudgetObj.isExhausted ? 'Budget Exceeded By' : 'Remaining Budget'}
                       </div>
-                      <div className={`text-xl font-bold font-mono ${reqBudgetObj.isExhausted ? 'text-red-400' : 'text-emerald-400'}`}>
+                      <div className={`text-2xl font-light ${reqBudgetObj.isExhausted ? 'text-red-400' : 'text-slate-300'}`}>
                         {Math.abs(reqBudgetObj.remainingBudget).toLocaleString()}
                       </div>
                     </div>
                   </div>
                 </div>
               )}
-            </div>
+            </section>
+          </div>
 
-          </motion.div>
         </div>
       </div>
     </div>
