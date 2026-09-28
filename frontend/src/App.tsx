@@ -18,6 +18,7 @@ export default function App() {
         <Route path="dashboard-analyzer" element={<DashboardAnalyzerTool />} />
         <Route path="sre-calculator" element={<SreCalculator />} />
         <Route path="lgtm-configs" element={<LgtmConfigs />} />
+        <Route path="lgtm-configs/:toolId" element={<LgtmConfigs />} />
       </Route>
     </Routes>
   );
