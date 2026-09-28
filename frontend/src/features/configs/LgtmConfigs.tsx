@@ -2,8 +2,10 @@ import { useState, useRef, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { Helmet } from 'react-helmet-async';
 import Editor from '@monaco-editor/react';
-import { Download, Copy, Check, FileText, Settings, Container, Box } from 'lucide-react';
+import { Download, Copy, Check, FileText, Settings, Container, Box, ShieldAlert } from 'lucide-react';
 import type * as Monaco from 'monaco-editor';
+
+import { toolsData, type Environment } from './toolsData';
 
 const hoverExplanations: Record<string, string> = {
   'scrape_configs': '**`scrape_configs`**\n\nDefines the targets Prometheus/Alloy will scrape metrics or logs from. Recommended to use service discovery (e.g. `kubernetes_sd_configs`) in production rather than `static_configs`.',
@@ -14,80 +16,17 @@ const hoverExplanations: Record<string, string> = {
   'ring': '**`ring`**\n\nManages the hash ring for distributed components. `inmemory` is only for single-node testing. In production, use `memberlist` or `etcd` / `consul`.',
   'forward_to': '**`forward_to`**\n\n(Alloy / Agent)\nSpecifies the receiver components where collected telemetry should be sent (e.g. to a remote_write block).',
   'positions': '**`positions`**\n\n(Promtail)\nSaves the last read offsets of log files so Promtail doesn\'t re-read logs if restarted.',
+  'memory_limiter': '**`memory_limiter`**\n\n(OTel)\nPrevents out of memory situations on the collector by checking memory usage and dropping/rejecting data when thresholds are exceeded. Must be the first processor.',
+  'batch': '**`batch`**\n\n(OTel)\nBatches telemetry data to compress and reduce the number of outgoing network requests. Highly recommended in production.',
 };
-
-const toolsData = [
-  {
-    id: 'alloy',
-    name: 'Grafana Alloy',
-    envs: {
-      standalone: { filename: 'config.alloy', language: 'hcl', content: 'logging { level = "info" }\n\nprometheus.exporter.unix "default" { }\n\nprometheus.scrape "default" {\n  targets = prometheus.exporter.unix.default.targets\n  forward_to = [prometheus.remote_write.mimir.receiver]\n}\n\nprometheus.remote_write "mimir" {\n  endpoint { url = "http://mimir:9009/api/v1/push" }\n}' },
-      docker: { filename: 'docker-compose.yaml', language: 'yaml', content: 'version: "3.8"\nservices:\n  alloy:\n    image: grafana/alloy:latest\n    command:\n      - run\n      - --server.http.listen-addr=0.0.0.0:12345\n      - /etc/alloy/config.alloy\n    volumes:\n      - ./config.alloy:/etc/alloy/config.alloy\n    ports:\n      - "12345:12345"' },
-      kubernetes: { filename: 'alloy-values.yaml', language: 'yaml', content: '# helm install alloy grafana/alloy -f values.yaml\nalloy:\n  configMap:\n    create: true\n    content: |-\n      logging { level = "info" }\n      prometheus.exporter.unix "default" { }\n      prometheus.scrape "default" {\n        targets = prometheus.exporter.unix.default.targets\n        forward_to = [prometheus.remote_write.mimir.receiver]\n      }\n      prometheus.remote_write "mimir" {\n        endpoint { url = "http://mimir:9009/api/v1/push" }\n      }' }
-    }
-  },
-  {
-    id: 'prometheus',
-    name: 'Prometheus',
-    envs: {
-      standalone: { filename: 'prometheus.yml', language: 'yaml', content: 'global:\n  scrape_interval: 15s\n\nscrape_configs:\n  - job_name: "prometheus"\n    static_configs:\n      - targets: ["localhost:9090"]\n\nremote_write:\n  - url: http://mimir:9009/api/v1/push' },
-      docker: { filename: 'docker-compose.yaml', language: 'yaml', content: 'version: "3.8"\nservices:\n  prometheus:\n    image: prom/prometheus:latest\n    volumes:\n      - ./prometheus.yml:/etc/prometheus/prometheus.yml\n    ports:\n      - "9090:9090"' },
-      kubernetes: { filename: 'prometheus-deploy.yaml', language: 'yaml', content: 'apiVersion: apps/v1\nkind: Deployment\nmetadata:\n  name: prometheus\nspec:\n  replicas: 1\n  template:\n    spec:\n      containers:\n      - name: prometheus\n        image: prom/prometheus:latest' }
-    }
-  },
-  {
-    id: 'loki',
-    name: 'Loki',
-    envs: {
-      standalone: { filename: 'loki.yaml', language: 'yaml', content: 'auth_enabled: false\nserver:\n  http_listen_port: 3100\ncommon:\n  path_prefix: /loki\n  storage:\n    filesystem:\n      chunks_directory: /loki/chunks\n      rules_directory: /loki/rules\n  replication_factor: 1\n  ring:\n    kvstore:\n      store: inmemory\nschema_config:\n  configs:\n    - from: 2020-10-24\n      store: tsdb\n      object_store: filesystem\n      schema: v13\n      index:\n        prefix: index_\n        period: 24h' },
-      docker: { filename: 'docker-compose.yaml', language: 'yaml', content: 'version: "3.8"\nservices:\n  loki:\n    image: grafana/loki:latest\n    ports:\n      - "3100:3100"\n    command: -config.file=/etc/loki/local-config.yaml' },
-      kubernetes: { filename: 'loki-values.yaml', language: 'yaml', content: 'loki:\n  auth_enabled: false\n  commonConfig:\n    replication_factor: 1\n  storage:\n    type: filesystem' }
-    }
-  },
-  {
-    id: 'promtail',
-    name: 'Promtail',
-    envs: {
-      standalone: { filename: 'promtail.yaml', language: 'yaml', content: 'server:\n  http_listen_port: 9080\npositions:\n  filename: /tmp/positions.yaml\nclients:\n  - url: http://loki:3100/loki/api/v1/push\nscrape_configs:\n  - job_name: system\n    static_configs:\n    - targets:\n        - localhost\n      labels:\n        job: varlogs\n        __path__: /var/log/*log' },
-      docker: { filename: 'docker-compose.yaml', language: 'yaml', content: 'version: "3.8"\nservices:\n  promtail:\n    image: grafana/promtail:latest\n    volumes:\n      - /var/log:/var/log\n    command: -config.file=/etc/promtail/config.yml' },
-      kubernetes: { filename: 'promtail-values.yaml', language: 'yaml', content: 'promtail:\n  config:\n    clients:\n      - url: http://loki:3100/loki/api/v1/push' }
-    }
-  },
-  {
-    id: 'tempo',
-    name: 'Tempo',
-    envs: {
-      standalone: { filename: 'tempo.yaml', language: 'yaml', content: 'server:\n  http_listen_port: 3200\ndistributor:\n  receivers:\n    otlp:\n      protocols:\n        http:\n        grpc:\nstorage:\n  trace:\n    backend: local\n    local:\n      path: /tmp/tempo/blocks' },
-      docker: { filename: 'docker-compose.yaml', language: 'yaml', content: 'version: "3.8"\nservices:\n  tempo:\n    image: grafana/tempo:latest\n    command: -config.file=/etc/tempo.yaml\n    ports:\n      - "3200:3200"' },
-      kubernetes: { filename: 'tempo-values.yaml', language: 'yaml', content: 'tempo:\n  storage:\n    trace:\n      backend: local' }
-    }
-  },
-  {
-    id: 'mimir',
-    name: 'Mimir',
-    envs: {
-      standalone: { filename: 'mimir.yaml', language: 'yaml', content: 'multitenancy_enabled: false\nblocks_storage:\n  backend: filesystem\n  bucket_store:\n    sync_dir: /tmp/mimir/tsdb-sync\n  filesystem:\n    dir: /tmp/mimir/data\n  tsdb:\n    dir: /tmp/mimir/tsdb' },
-      docker: { filename: 'docker-compose.yaml', language: 'yaml', content: 'version: "3.8"\nservices:\n  mimir:\n    image: grafana/mimir:latest\n    command: -config.file=/etc/mimir.yaml\n    ports:\n      - "9009:9009"' },
-      kubernetes: { filename: 'mimir-values.yaml', language: 'yaml', content: 'mimir:\n  structuredConfig:\n    multitenancy_enabled: false' }
-    }
-  },
-  {
-    id: 'otel',
-    name: 'OpenTelemetry',
-    envs: {
-      standalone: { filename: 'otel-config.yaml', language: 'yaml', content: 'receivers:\n  otlp:\n    protocols:\n      grpc:\n      http:\nexporters:\n  prometheusremotewrite:\n    endpoint: "http://mimir:9009/api/v1/push"\nservice:\n  pipelines:\n    metrics:\n      receivers: [otlp]\n      exporters: [prometheusremotewrite]' },
-      docker: { filename: 'docker-compose.yaml', language: 'yaml', content: 'version: "3.8"\nservices:\n  otel-collector:\n    image: otel/opentelemetry-collector:latest\n    command: ["--config=/etc/otel-config.yaml"]\n    volumes:\n      - ./otel-config.yaml:/etc/otel-config.yaml' },
-      kubernetes: { filename: 'otel-values.yaml', language: 'yaml', content: 'mode: deployment\nconfig:\n  receivers:\n    otlp:\n      protocols:\n        grpc:\n        http:' }
-    }
-  }
-];
 
 export default function LgtmConfigs() {
   const { toolId } = useParams();
   const navigate = useNavigate();
   const initialToolId = (toolId && toolsData.some(t => t.id === toolId)) ? toolId : toolsData[0].id;
+  
   const [activeToolId, setActiveToolId] = useState(initialToolId);
-  const [activeEnv, setActiveEnv] = useState<'standalone' | 'docker' | 'kubernetes'>('standalone');
+  const [activeEnv, setActiveEnv] = useState<Environment>('local');
   const [copied, setCopied] = useState(false);
   const providerRegistered = useRef(false);
 
@@ -188,7 +127,7 @@ export default function LgtmConfigs() {
                 }`}
               >
                 <Settings size={16} />
-                {tool.name}
+                <span className={tool.id === 'promtail' ? 'line-through opacity-70' : ''}>{tool.name}</span>
               </button>
             ))}
           </div>
@@ -204,22 +143,29 @@ export default function LgtmConfigs() {
           {/* Top Env Toggle */}
           <div className="flex items-center bg-slate-900 border-b border-slate-800 shrink-0 px-4 py-2 gap-2 overflow-x-auto">
             <button 
-              onClick={() => setActiveEnv('standalone')}
-              className={`flex items-center gap-2 px-4 py-2 text-sm font-medium rounded-md transition-colors ${activeEnv === 'standalone' ? 'bg-slate-800 text-slate-200' : 'text-slate-400 hover:text-slate-200'}`}
+              onClick={() => setActiveEnv('local')}
+              className={`flex items-center gap-2 px-4 py-2 text-sm font-medium rounded-md transition-colors ${activeEnv === 'local' ? 'bg-slate-800 text-sky-400' : 'text-slate-400 hover:text-slate-200'}`}
             >
-              <FileText size={16}/> Config File
+              <FileText size={16}/> Local (Basic)
             </button>
             <button 
               onClick={() => setActiveEnv('docker')}
-              className={`flex items-center gap-2 px-4 py-2 text-sm font-medium rounded-md transition-colors ${activeEnv === 'docker' ? 'bg-slate-800 text-slate-200' : 'text-slate-400 hover:text-slate-200'}`}
+              className={`flex items-center gap-2 px-4 py-2 text-sm font-medium rounded-md transition-colors ${activeEnv === 'docker' ? 'bg-slate-800 text-sky-400' : 'text-slate-400 hover:text-slate-200'}`}
             >
               <Box size={16}/> Docker Compose
             </button>
             <button 
               onClick={() => setActiveEnv('kubernetes')}
-              className={`flex items-center gap-2 px-4 py-2 text-sm font-medium rounded-md transition-colors ${activeEnv === 'kubernetes' ? 'bg-slate-800 text-slate-200' : 'text-slate-400 hover:text-slate-200'}`}
+              className={`flex items-center gap-2 px-4 py-2 text-sm font-medium rounded-md transition-colors ${activeEnv === 'kubernetes' ? 'bg-slate-800 text-sky-400' : 'text-slate-400 hover:text-slate-200'}`}
             >
               <Container size={16}/> Kubernetes
+            </button>
+            <div className="w-px h-6 bg-slate-800 mx-2"></div>
+            <button 
+              onClick={() => setActiveEnv('production')}
+              className={`flex items-center gap-2 px-4 py-2 text-sm font-bold rounded-md transition-colors ${activeEnv === 'production' ? 'bg-amber-500/20 text-amber-400' : 'text-slate-500 hover:text-amber-400'}`}
+            >
+              <ShieldAlert size={16}/> Production (HA)
             </button>
           </div>
 
