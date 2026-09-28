@@ -4,6 +4,7 @@ import ExplainerTool from './features/promql/Explainer';
 import AlertAnalyzerTool from './features/alerts/AlertAnalyzer';
 import DashboardAnalyzerTool from './features/dashboard/DashboardAnalyzer';
 import SreCalculator from './features/sre/SreCalculator';
+import LgtmConfigs from './features/configs/LgtmConfigs';
 
 import HomePage from './features/home/HomePage';
 
@@ -16,6 +17,7 @@ export default function App() {
         <Route path="alert-analyzer" element={<AlertAnalyzerTool />} />
         <Route path="dashboard-analyzer" element={<DashboardAnalyzerTool />} />
         <Route path="sre-calculator" element={<SreCalculator />} />
+        <Route path="lgtm-configs" element={<LgtmConfigs />} />
       </Route>
     </Routes>
   );

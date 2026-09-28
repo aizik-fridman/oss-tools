@@ -1,6 +1,6 @@
 import { Link } from 'react-router-dom';
 import { Helmet } from 'react-helmet-async';
-import { Search, LayoutDashboard, FileWarning, Calculator, ArrowRight } from 'lucide-react';
+import { Search, LayoutDashboard, FileWarning, Calculator, ArrowRight, FileCode } from 'lucide-react';
 
 export default function HomePage() {
   const tools = [
@@ -40,6 +40,15 @@ export default function HomePage() {
       bgClass: 'bg-violet-400/10 hover:bg-violet-400/20',
       borderClass: 'border-violet-500/20'
     },
+    { 
+      path: '/lgtm-configs', 
+      name: 'Basic LGTM Configs', 
+      icon: FileCode,
+      description: 'Download and copy essential configuration files for Grafana Alloy, Prometheus, Loki, Tempo, and Mimir.',
+      color: 'text-emerald-400',
+      bgClass: 'bg-emerald-400/10 hover:bg-emerald-400/20',
+      borderClass: 'border-emerald-500/20'
+    }
   ];
 
   return (
