@@ -1,6 +1,6 @@
 import { Link } from 'react-router-dom';
 import { Helmet } from 'react-helmet-async';
-import { Search, LayoutDashboard, FileWarning, Calculator, ArrowRight, FileCode } from 'lucide-react';
+import { Search, LayoutDashboard, FileWarning, Calculator, ArrowRight } from 'lucide-react';
 
 export default function HomePage() {
   const tools = [
@@ -40,15 +40,6 @@ export default function HomePage() {
       bgClass: 'bg-violet-400/10 hover:bg-violet-400/20',
       borderClass: 'border-violet-500/20'
     },
-    { 
-      path: '/lgtm-configs', 
-      name: 'Basic LGTM Configs', 
-      icon: FileCode,
-      description: 'Download and copy essential configuration files for Grafana Alloy, Prometheus, Loki, Tempo, and Mimir.',
-      color: 'text-emerald-400',
-      bgClass: 'bg-emerald-400/10 hover:bg-emerald-400/20',
-      borderClass: 'border-emerald-500/20'
-    }
   ];
 
   return (
@@ -57,7 +48,7 @@ export default function HomePage() {
         <title>Observability Helpers | Optimize your LGTM systems</title>
         <meta name="description" content="A suite of 100% client-side, WebAssembly-powered tools to build, analyze, and optimize your monitoring stack." />
       </Helmet>
-      <div className="max-w-7xl w-full">
+      <div className="max-w-4xl w-full">
         <header className="text-center mb-16 animate-in fade-in slide-in-from-bottom-4 duration-700">
           <h1 className="text-4xl md:text-5xl font-bold font-space text-transparent bg-clip-text bg-gradient-to-r from-sky-400 to-emerald-400 mb-4 tracking-tight">
             Optimize your LGTM systems
@@ -67,14 +58,14 @@ export default function HomePage() {
           </p>
         </header>
 
-        <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-5 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
           {tools.map((tool, idx) => {
             const Icon = tool.icon;
             return (
               <Link
                 key={tool.path}
                 to={tool.path}
-                className={`group flex flex-col p-4 md:p-5 rounded-2xl border ${tool.borderClass} ${tool.bgClass} transition-all duration-300 hover:scale-105 hover:shadow-xl hover:shadow-black/50 animate-in fade-in slide-in-from-bottom-4`}
+                className={`group flex flex-col p-6 rounded-2xl border ${tool.borderClass} ${tool.bgClass} transition-all duration-300 hover:scale-105 hover:shadow-xl hover:shadow-black/50 animate-in fade-in slide-in-from-bottom-4`}
                 style={{ animationDelay: `${idx * 150}ms`, animationFillMode: 'both' }}
               >
                 <div className={`${tool.color} mb-4`}>

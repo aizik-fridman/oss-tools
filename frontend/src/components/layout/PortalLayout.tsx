@@ -1,5 +1,5 @@
 import { Link, Outlet, useLocation } from 'react-router-dom';
-import { Search, LayoutDashboard, FileWarning, Calculator, Menu, X, Info, ExternalLink, Mail, Code2, FileCode } from 'lucide-react';
+import { Search, LayoutDashboard, FileWarning, Calculator, Menu, X, Info, ExternalLink, Mail, Code2 } from 'lucide-react';
 import { useState } from 'react';
 
 export default function PortalLayout() {
@@ -12,7 +12,6 @@ export default function PortalLayout() {
     { path: '/promql-helper', name: 'PromQL Helper', icon: Search },
     { path: '/alert-analyzer', name: 'Alert Analyzer', icon: FileWarning },
     { path: '/sre-calculator', name: 'SRE Calculators', icon: Calculator },
-    { path: '/lgtm-configs', name: 'Basic LGTM Configs', icon: FileCode },
   ];
 
   return (
